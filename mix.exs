@@ -27,7 +27,6 @@ defmodule Cassandra.Mixfile do
   defp deps, do: [
     {:connection, "~> 1.0"},
     {:uuid, "~> 1.1"},
-    {:ecto, "~> 2.1.0-rc.3"},
     {:excheck, "~> 0.5", only: :test},
     {:triq, github: "triqng/triq", only: :test},
     {:excoveralls, "~> 0.5", only: :test},
