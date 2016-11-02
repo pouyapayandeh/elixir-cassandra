@@ -78,14 +78,14 @@ users
 {:ok, rows} = res = Repo.execute("SELECT * FROM test.users;", consistency: :all)
 
 # {:ok,
-#  [%{"age" => 2019,
-#     "id" => "240fb6a0-9903-11e6-8a4f-f58bd8d3766a",
-#     "name" => "Gandolf"},
-#   %{"age" => 33,
-#     "id" => "240fddb0-9903-11e6-8a4f-f58bd8d3766a",
-#     "name" => "Frodo"},
-#   %{"age" => 50,
-#     "id" => "240fb6a1-9903-11e6-8a4f-f58bd8d3766a",
-#     "name" => "Bilbo"}]}
+#  %CQL.Result.Rows{
+#   columns: ["id", "age", "name"],
+#   rows_count: 3,
+#   rows: [
+#    ["831e5df2-a0e1-11e6-b9af-6d2c86545d91", 2019, "Gandolf"],
+#    ["831e5df1-a0e1-11e6-b9af-6d2c86545d91", 33, "Frodo"],
+#    ["831e5df0-a0e1-11e6-b9af-6d2c86545d91", 50, "Bilbo"]
+#   ]
+# }}
 ```
 
