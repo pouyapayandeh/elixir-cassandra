@@ -26,16 +26,17 @@ defmodule Cassandra do
       @cluster __MODULE__.Cluster
       @session __MODULE__.Session
 
-      def start_link(options) do
+      def start_link(options \\ []) do
         Supervisor.start_link(__MODULE__, options)
       end
 
       def init(options) do
-        config = case Keyword.fetch(unquote(opts), :otp_app) do
+        opts = unquote(opts)
+        config = case Keyword.fetch(opts, :otp_app) do
           {:ok, app} ->
             Application.get_env(app, __MODULE__, [])
           :error ->
-            []
+            opts
         end
 
         options = Keyword.merge(config, options)
