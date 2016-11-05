@@ -75,7 +75,7 @@ users
 |> Enum.map(&Task.await/1)
 |> Enum.each(&IO.inspect(&1))
 
-{:ok, rows} = res = Repo.execute("SELECT * FROM test.users;", consistency: :all)
+{:ok, rows} = Repo.execute("SELECT * FROM test.users;", consistency: :all)
 
 # {:ok,
 #  %CQL.Result.Rows{
