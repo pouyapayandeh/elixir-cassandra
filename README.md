@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/cafebazaar/elixir-cassandra.svg?branch=master)](https://travis-ci.org/cafebazaar/elixir-cassandra)
 [![Hex.pm](https://img.shields.io/hexpm/v/cassandra.svg?maxAge=2592000)](https://hex.pm/packages/cassandra)
 [![Hex.pm](https://img.shields.io/hexpm/l/cassandra.svg?maxAge=2592000)](https://github.com/cafebazaar/elixir-cassandra/blob/master/LICENSE.md)
+[![Coverage Status](https://coveralls.io/repos/github/cafebazaar/elixir-cassandra/badge.svg?branch=master)](https://coveralls.io/github/cafebazaar/elixir-cassandra?branch=master)
 
 An Elixir driver for Apache Cassandra.
 
