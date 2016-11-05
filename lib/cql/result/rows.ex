@@ -11,6 +11,7 @@ defmodule CQL.Result.Rows do
     :rows_count,
   ]
 
+  @doc false
   def decode(buffer) do
     {meta, buffer} = unpack buffer,
       metadata:   &CQL.MetaData.decode/1,
@@ -27,10 +28,16 @@ defmodule CQL.Result.Rows do
     {result, Map.get(meta.metadata, :paging_state)}
   end
 
+  @doc """
+  Converts a Rows struct to a list of keyword lists with column names as keys
+  """
   def to_keyword(%__MODULE__{columns: columns, rows: rows}) do
     Enum.map(rows, &zip_to(columns, &1, []))
   end
 
+  @doc """
+  Converts a Rows struct to a list of maps with column names as keys
+  """
   def to_map(%__MODULE__{columns: columns, rows: rows}) do
     Enum.map(rows, &zip_to(columns, &1, %{}))
   end

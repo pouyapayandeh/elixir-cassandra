@@ -105,7 +105,7 @@ defmodule Cassandra.Connection do
 
   It returns a `ref` reference and when response is ready it will be sent to calling process as `{ref, result}` tuple.
 
-  See `send/3' for `result` types.
+  See `send/3` for `result` types.
   """
   def send_async(connection, request) do
     send_async(connection, request, {self, make_ref})
