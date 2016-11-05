@@ -31,7 +31,7 @@ Add `cassandra` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:cassandra, "~> 1.0.0-beta"}]
+  [{:cassandra, "~> 1.0.0-beta.1"}]
 end
 ```
 
