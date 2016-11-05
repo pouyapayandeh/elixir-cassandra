@@ -1,4 +1,6 @@
 defmodule CQL.Opration do
+  @moduledoc false
+
   import CQL.DataTypes.Encoder
 
   @names %{

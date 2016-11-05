@@ -1,4 +1,6 @@
 defmodule CQL do
+  @moduledoc false
+
   def decode(buffer) do
     {frame, rest} = CQL.Frame.decode(buffer)
     {decode_body(frame), rest}

@@ -1,4 +1,6 @@
 defmodule CQL.Consistency do
+  @moduledoc false
+
   @codes %{
     :any          => 0x00,
     :one          => 0x01,

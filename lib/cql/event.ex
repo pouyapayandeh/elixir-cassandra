@@ -1,8 +1,13 @@
 defmodule CQL.Event do
+  @moduledoc """
+  Represents a CQL event
+  """
+
   import CQL.DataTypes.Decoder
 
   defstruct [:type, :info]
 
+  @doc false
   def decode(body) do
     {type, buffer} = string(body)
 

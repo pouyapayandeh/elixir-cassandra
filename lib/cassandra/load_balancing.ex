@@ -1,4 +1,6 @@
 defmodule Cassandra.LoadBalancing do
+  @moduledoc false
+
   alias Cassandra.LoadBalancing.Policy
 
   @distances [:ignore, :local, :remote]

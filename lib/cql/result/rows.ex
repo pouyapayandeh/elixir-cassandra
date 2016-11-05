@@ -1,4 +1,8 @@
 defmodule CQL.Result.Rows do
+  @moduledoc """
+  Represents a CQL rows result
+  """
+
   import CQL.DataTypes.Decoder
 
   defstruct [

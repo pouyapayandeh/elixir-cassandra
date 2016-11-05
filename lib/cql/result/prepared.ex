@@ -1,4 +1,8 @@
 defmodule CQL.Result.Prepared do
+  @moduledoc """
+  Represents a CQL prepared result
+  """
+
   import CQL.DataTypes.Decoder
 
   alias CQL.MetaData

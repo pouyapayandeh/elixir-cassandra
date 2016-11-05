@@ -1,4 +1,6 @@
 defmodule Cassandra.Reconnection do
+  @moduledoc false
+
   alias Cassandra.Reconnection.Policy
 
   def start_link(options) do

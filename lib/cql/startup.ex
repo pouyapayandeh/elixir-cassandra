@@ -1,4 +1,6 @@
 defmodule CQL.Startup do
+  @moduledoc false
+
   import CQL.DataTypes.Encoder
 
   alias CQL.{Request, Startup}

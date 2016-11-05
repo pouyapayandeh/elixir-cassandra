@@ -1,4 +1,6 @@
 defmodule CQL.Frame do
+  @moduledoc false
+
   import CQL.DataTypes.Encoder
 
   alias CQL.Opration

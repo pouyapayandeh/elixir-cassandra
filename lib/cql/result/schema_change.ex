@@ -1,4 +1,8 @@
 defmodule CQL.Result.SchemaChange do
+  @moduledoc """
+  Represents a CQL schema change result
+  """
+
   import CQL.DataTypes.Decoder
 
   defstruct [

@@ -1,4 +1,8 @@
 defmodule CQL.Register do
+  @moduledoc """
+  Represents a CQL Register statement
+  """
+
   import CQL.DataTypes.Encoder
   alias CQL.Request
 

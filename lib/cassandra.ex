@@ -1,4 +1,22 @@
 defmodule Cassandra do
+  @moduledoc """
+  Is a helper to create a session on a Cassandra cluster
+
+  ## Example
+
+  ```elixir
+  defmodule Repo do
+    use Cassandra, keyspace: "test"
+  end
+
+  # Start the repo
+  {:ok, _} = Repo.start_link
+
+  # Execute statements
+  {:ok, rows} = Repo.execute("SELECT * FROM users;")
+  ```
+  """
+
   alias Cassandra.{Cluster, Session}
 
   defmacro __using__(opts \\ []) do

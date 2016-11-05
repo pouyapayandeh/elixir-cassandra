@@ -1,4 +1,6 @@
 defmodule CQL.Result do
+  @moduledoc false
+
   import CQL.DataTypes.Decoder
 
   alias CQL.Result

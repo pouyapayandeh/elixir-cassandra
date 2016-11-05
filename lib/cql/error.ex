@@ -1,4 +1,6 @@
 defmodule CQL.Error do
+  @moduledoc false
+
   import CQL.DataTypes.Decoder
 
   defstruct [:code, :message, :info]

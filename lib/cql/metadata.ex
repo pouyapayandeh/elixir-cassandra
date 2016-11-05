@@ -1,4 +1,6 @@
 defmodule CQL.MetaData do
+  @moduledoc false
+
   import CQL.DataTypes.Decoder
 
   require Bitwise

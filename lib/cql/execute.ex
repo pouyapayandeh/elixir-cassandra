@@ -1,4 +1,8 @@
 defmodule CQL.Execute do
+  @moduledoc """
+  Represents a CQL execute statement
+  """
+
   import CQL.DataTypes.Encoder
 
   alias CQL.{Request, QueryParams}

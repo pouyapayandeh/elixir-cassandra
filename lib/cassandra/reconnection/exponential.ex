@@ -1,4 +1,16 @@
 defmodule Cassandra.Reconnection.Exponential do
+  @moduledoc """
+  Constant reconnection policy
+
+  ## Acceptable args
+
+  * `:initial` - how long to wait in milliseconds after the first failure before retrying (default: `500`)
+  * `:multiplayer` - factor with which to multiply backoff after a failed retry (default: `1.6`)
+  * `:jitter` - noise factor (default: `0.2`)
+  * `:max` - max backoff time in milliseconds (default: `12000`)
+  * `:max_attempts` - max number of attempts on a host befor aborting (default: `3`)
+  """
+
   defstruct [
     current: nil,
     attempts: 0,

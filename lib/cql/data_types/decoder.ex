@@ -1,4 +1,6 @@
 defmodule CQL.DataTypes.Decoder do
+  @moduledoc false
+
   require Bitwise
 
   def decode({type, buffer}), do: decode(buffer, type)

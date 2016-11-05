@@ -1,4 +1,8 @@
 defmodule CQL.Supported do
+  @moduledoc """
+  Represents a CQL supported response
+  """
+
   import CQL.DataTypes.Decoder
 
   defstruct [options: %{}]

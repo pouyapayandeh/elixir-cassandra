@@ -1,4 +1,7 @@
 defmodule CQL.QueryParams do
+  @moduledoc """
+  Represents a CQL query/execute statements parameters
+  """
   import CQL.DataTypes.Encoder
 
   require Bitwise

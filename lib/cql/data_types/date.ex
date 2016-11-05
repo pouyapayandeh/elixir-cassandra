@@ -1,4 +1,6 @@
 defmodule CQL.DataTypes.Date do
+  @moduledoc false
+
   @epoch :calendar.date_to_gregorian_days({1970, 1, 1}) - trunc(:math.pow(2, 31))
 
   def decode(<<days::integer-32, rest::bytes>>) do

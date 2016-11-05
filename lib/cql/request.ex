@@ -1,4 +1,6 @@
 defprotocol CQL.Request do
+  @moduledoc false
+
   @fallback_to_any true
   def encode(request)
 end

@@ -1,5 +1,7 @@
 defmodule Cassandra.Host do
-  @type t :: %Cassandra.Host{}
+  @moduledoc """
+  Represents a Cassandra host
+  """
 
   require Logger
 
@@ -16,6 +18,9 @@ defmodule Cassandra.Host do
     :prepared_statements,
   ]
 
+  @doc """
+  Creates a new Host struct from given data came from Cassandra `system.peers` or `system.local` tabels
+  """
   def new(data, status \\ nil) do
     with {:ok, ip} <- peer_ip(data),
          {:ok, host} <- from_data(data)
@@ -26,21 +31,32 @@ defmodule Cassandra.Host do
     end
   end
 
+  @doc """
+  Chacks whether the `host` status is up or not
+  """
   def up?({_, host}), do: up?(host)
   def up?(%__MODULE__{} = host), do: host.status == :up
 
+  @doc """
+  Chacks whether the `host` status is down or not
+  """
   def down?({_, host}), do: down?(host)
   def down?(%__MODULE__{} = host), do: host.status == :down
 
+  @doc """
+  Toggles the `host` status to `status`
+  """
   def toggle(%__MODULE__{} = host, status)
   when status == :up or status == :down do
     %{host | status: status}
   end
 
+  @doc false
   def toggle_connection(%__MODULE__{} = host, conn, state) do
     put_in(host.connections[conn], state)
   end
 
+  @doc false
   def put_connections(%__MODULE__{} = host, conns, state \\ :close) do
     connections =
       conns
@@ -50,32 +66,39 @@ defmodule Cassandra.Host do
     put_in(host.connections, connections)
   end
 
+  @doc false
   def delete_connection(%__MODULE__{} = host, conn) do
     update_in(host.connections, &Map.delete(&1, conn))
   end
 
+  @doc false
   def open?(%__MODULE__{} = host, conn) do
     host.connections[conn] == :open
   end
 
+  @doc false
   def open_connections(%__MODULE__{} = host) do
     Enum.filter(host.connections, fn {_, state} -> state == :open end)
   end
 
+  @doc false
   def open_connections_count(%__MODULE__{} = host) do
     host
     |> open_connections
     |> Enum.count
   end
 
+  @doc false
   def put_prepared_statement(%__MODULE__{} = host, hash, prepared) do
     put_in(host.prepared_statements[hash], prepared)
   end
 
+  @doc false
   def delete_prepared_statements(%__MODULE__{} = host) do
     %{host | prepared_statements: %{}}
   end
 
+  @doc false
   def has_prepared?(%__MODULE__{} = host, hash) do
     Map.has_key?(host.prepared_statements, hash)
   end

@@ -1,4 +1,6 @@
 defmodule CQL.DataTypes.Encoder do
+  @moduledoc false
+
   require Bitwise
 
   def encode(nil),                            do: encode({nil, nil})

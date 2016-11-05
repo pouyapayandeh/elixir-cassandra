@@ -1,4 +1,8 @@
 defmodule CQL.Options do
+  @moduledoc """
+  Represents a CQL options request statement
+  """
+
   defstruct []
 
   defimpl CQL.Request do

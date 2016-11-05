@@ -1,4 +1,6 @@
 defmodule CQL.Ready do
+  @moduledoc false
+
   defstruct []
 
   def decode(_buffer) do

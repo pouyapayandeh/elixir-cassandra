@@ -1,4 +1,12 @@
 defmodule Cassandra.LoadBalancing.RoundRobin do
+  @moduledoc """
+  Round robin load balancing policy
+
+  ## Acceptable args
+
+  * `:num_connections` - number of connections to open for each host (default: `2`)
+  """
+
   alias Cassandra.Host
 
   defstruct [num_connections: 2]

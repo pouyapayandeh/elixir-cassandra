@@ -1,4 +1,6 @@
 defmodule Cassandra.Session.Worker do
+  @moduledoc false
+
   require Logger
 
   def send_request(_, from, [], _) do

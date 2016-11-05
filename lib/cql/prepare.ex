@@ -1,4 +1,8 @@
 defmodule CQL.Prepare do
+  @moduledoc """
+  Represents a CQL prepare statement
+  """
+
   import CQL.DataTypes.Encoder
 
   alias CQL.{Request, Prepare}

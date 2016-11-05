@@ -1,4 +1,6 @@
 defmodule Cassandra.Cluster.Registery do
+  @moduledoc false
+
   require Logger
 
   alias Cassandra.{Host, Session}

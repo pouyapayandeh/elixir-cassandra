@@ -1,4 +1,5 @@
 defmodule CQL.DataTypes do
+  @moduledoc false
 
   @kinds %{
     0x01 => :ascii,

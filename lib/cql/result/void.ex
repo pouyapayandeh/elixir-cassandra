@@ -1,4 +1,6 @@
 defmodule CQL.Result.Void do
+  @moduledoc false
+
   defstruct []
 
   def decode("") do
