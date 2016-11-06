@@ -16,10 +16,10 @@ This driver works with Cassandra Query Language version 3 (CQL3) and Cassandra's
 * Ecto like Repo supervisor
 * Asynchronous execution through Tasks
 * Prepared statements with named and position based values
+* Batch statement
 
 ## Todo
 
-* [ ] Batch statement
 * [ ] Token based load-balancing policy
 * [ ] Compression
 * [ ] Authentication and SSL encryption

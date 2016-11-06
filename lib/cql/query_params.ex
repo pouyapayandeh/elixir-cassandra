@@ -76,30 +76,4 @@ defmodule CQL.QueryParams do
     |> Enum.reverse
     |> Enum.join
   end
-
-  defp values(list) when is_list(list) do
-    parts = Enum.map(list, &CQL.DataTypes.encode/1)
-
-    if Enum.any?(parts, &(&1 == :error)) do
-      :error
-    else
-      n = Enum.count(list)
-      Enum.join([short(n) | parts])
-    end
-  end
-
-  defp values(map) when is_map(map) do
-    parts = Enum.flat_map map, fn {k, v} ->
-      [string(to_string(k)), CQL.DataTypes.encode(v)]
-    end
-
-    if Enum.any?(parts, &(&1 == :error)) do
-      :error
-    else
-      n = Enum.count(map)
-      Enum.join([short(n) | parts])
-    end
-  end
-
-  defp values(_), do: :error
 end

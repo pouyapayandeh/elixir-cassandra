@@ -107,6 +107,29 @@ defmodule Cassandra.ConnectionTest do
       assert {:ok, %CQL.Result.Prepared{}} = Connection.send(conn, request)
     end
 
+    test "Batch", %{conn: conn} do
+      request = %CQL.Prepare{query: "INSERT INTO #{@table_name} (id, name, age) VALUES (now(), ?, ?);"}
+      assert {:ok, insert} = Connection.send(conn, request)
+
+      users = [
+        ["Jack", 30],
+        ["John", 31],
+        ["Joe", 32],
+      ]
+
+      queries = Enum.map(users, &%CQL.BatchQuery{query: insert, values: &1})
+      query = %CQL.BatchQuery{query: "INSERT INTO #{@table_name} (id, name, age) VALUES (now(), 'Jesse', 90);"}
+
+      request = %CQL.Batch{queries: [query | queries]}
+      assert {:ok, :done} = Connection.send(conn, request)
+
+      request = %CQL.Query{query: "SELECT name, age FROM #{@table_name};"}
+      assert {:ok, %CQL.Result.Rows{rows_count: 4, columns: ["name", "age"], rows: rows}} =
+        Connection.send(conn, request)
+
+      assert Enum.all?([["Jesse", 90] | users], fn [name, age] -> Enum.find(rows, &match?([^name, ^age], &1)) end)
+    end
+
     test "Rows", %{conn: conn} do
       request = %CQL.Prepare{query: "INSERT INTO #{@table_name} (id, name, age) VALUES (now(), ?, ?);"}
       assert {:ok, insert} = Connection.send(conn, request)

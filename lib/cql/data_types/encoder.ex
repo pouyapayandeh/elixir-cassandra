@@ -169,6 +169,57 @@ defmodule CQL.DataTypes.Encoder do
 
   def now(unit), do: :erlang.system_time(unit)
 
+  def zip(types, values) when is_map(values) do
+    zip_map(types, Enum.to_list(values), [])
+  end
+
+  def zip(types, values) when is_list(values) do
+    types
+    |> Keyword.values
+    |> Enum.zip(values)
+  end
+
+  def zip(_, values) when is_nil(values), do: nil
+
+  def zip(_, _), do: :error
+
+  def zip_map(_, [], zipped), do: Enum.into(zipped, %{})
+
+  def zip_map(types, [{name, value} | values], zipped) do
+    case List.keyfind(types, to_string(name), 0) do
+      nil ->
+        :error
+      {_, type} ->
+        zip_map(types, values, [{name, {type, value}} | zipped])
+    end
+  end
+
+  def values(list) when is_list(list) do
+    parts = Enum.map(list, &CQL.DataTypes.encode/1)
+
+    if Enum.any?(parts, &(&1 == :error)) do
+      :error
+    else
+      n = Enum.count(list)
+      Enum.join([short(n) | parts])
+    end
+  end
+
+  def values(map) when is_map(map) do
+    parts = Enum.flat_map map, fn {k, v} ->
+      [string(to_string(k)), CQL.DataTypes.encode(v)]
+    end
+
+    if Enum.any?(parts, &(&1 == :error)) do
+      :error
+    else
+      n = Enum.count(map)
+      Enum.join([short(n) | parts])
+    end
+  end
+
+  def values(_), do: :error
+
   ### Utils ###
 
   defp int_bytes(x, acc \\ 0)
