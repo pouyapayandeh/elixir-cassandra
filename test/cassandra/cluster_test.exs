@@ -1,5 +1,5 @@
 defmodule Cassandra.ClusterTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   alias Cassandra.Cluster
   import ExUnit.CaptureLog
