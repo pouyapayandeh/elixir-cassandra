@@ -150,11 +150,17 @@ defmodule Cassandra.Session do
   end
 
   @doc false
+  def handle_call({:execute, {statement, list}, options}, from, state)
+  when is_bitstring(statement) and is_list(list) do
+    prepare_and_execute(statement, list, options, from, state)
+  end
+
+  @doc false
   def handle_call({:execute, statement, options}, from, state)
   when is_bitstring(statement)
   do
     if has_values?(options) do
-      prepare_and_execute(statement, options, from, state)
+      prepare_and_execute(statement, nil, options, from, state)
     else
       query = %CQL.Query{query: statement, params: struct(CQL.QueryParams, options)}
       handle_send(query, from, state)
@@ -259,10 +265,10 @@ defmodule Cassandra.Session do
         GenServer.reply(from, reply)
         {:noreply, state}
 
-      {{from, prepare, hash, options}, state} ->
+      {{from, prepare, batch_list, hash, options}, state} ->
         case result do
           {:ok, _} ->
-            execute(prepare, hash, options, from, state)
+            execute(prepare, batch_list, hash, options, from, state)
           {:error, error} ->
             GenServer.reply(from, error)
             {:noreply, state}
@@ -287,25 +293,31 @@ defmodule Cassandra.Session do
     end
   end
 
-  defp prepare_and_execute(statement, options, from, state) when is_bitstring(statement) do
+  defp prepare_and_execute(statement, batch_list, options, from, state) when is_bitstring(statement) do
     prepare = %CQL.Prepare{query: statement}
     encoded = CQL.encode(prepare)
     hash = :crypto.hash(:md5, encoded)
-    execute(prepare, hash, options, from, state)
+    execute(prepare, batch_list, hash, options, from, state)
   end
 
-  defp execute(prepare, hash, options, from, state) do
+  defp execute(prepare, batch_list, hash, options, from, state) do
     preferred_hosts =
       state.hosts
       |> Map.values
       |> Enum.filter(&Host.has_prepared?(&1, hash))
 
     if open_connections_count(preferred_hosts) == 0 do
-      send_through_self(prepare, {from, prepare, hash, options}, state)
+      send_through_self(prepare, {from, prepare, batch_list, hash, options}, state)
     else
       host = hd(preferred_hosts)
       prepared = host.prepared_statements[hash]
-      execute = %CQL.Execute{prepared: prepared, params: struct(CQL.QueryParams, options)}
+      execute = case batch_list do
+        nil ->
+          %CQL.Execute{prepared: prepared, params: struct(CQL.QueryParams, options)}
+        values when is_list(values) ->
+          queries = Enum.map(values, &%CQL.BatchQuery{query: prepared, values: &1})
+          struct(CQL.Batch, Keyword.put(options, :queries, queries))
+      end
       start_task({from, execute}, preferred_hosts, state.balancer, state.retry)
       {:noreply, state}
     end

@@ -38,7 +38,7 @@ defmodule Cassandra.SessionTest do
   end
 
   test "prepare", %{session: session} do
-    insert = "INSERT INTO people (id, name, age) VALUES (now(), ?, ?);"
+    insert = "INSERT INTO people (id, name, age) VALUES (now(), :name, :age);"
     assert {:ok, ^insert} = Session.prepare(session, insert)
 
     characters = [
@@ -57,6 +57,25 @@ defmodule Cassandra.SessionTest do
 
     for char <- characters do
       assert !is_nil(Enum.find(rows.rows, fn [name, age] -> name == char[:name] and age == char[:age] end))
+    end
+  end
+
+  test "batch", %{session: session} do
+    insert = "INSERT INTO people (id, name, age) VALUES (now(), ?, ?);"
+
+    characters = [
+      ["Bilbo", 50],
+      ["Frodo", 33],
+      ["Gandolf", 2019],
+    ]
+
+    assert {:ok, :done} = Session.execute(session, {insert, characters})
+
+    assert {:ok, rows} = Session.execute(session, "SELECT name, age FROM people;")
+    assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} = rows
+
+    for [name, age] <- characters do
+      assert !is_nil(Enum.find(rows.rows, &(&1 == [name, age])))
     end
   end
 
