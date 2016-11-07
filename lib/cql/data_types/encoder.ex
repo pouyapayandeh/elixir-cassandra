@@ -192,6 +192,10 @@ defmodule CQL.DataTypes.Encoder do
     end
   end
 
+  def values([{_, _} | _] = list) when is_list(list) do
+    list |> Keyword.values |> values
+  end
+
   def values(list) when is_list(list) do
     parts = Enum.map(list, &CQL.DataTypes.encode/1)
 
