@@ -13,9 +13,7 @@ defmodule CQL.BatchQuery do
   }
 
   @doc false
-  def encode(%__MODULE__{query: %CQL.Result.Prepared{id: id} = prepared, values: values})
-  when is_list(values)
-  do
+  def encode(%__MODULE__{query: %CQL.Result.Prepared{id: id} = prepared, values: values}) do
     with {:ok, zipped} <- ok(zip(prepared.metadata.column_types, values)),
          {:ok, encoded_values} <- ok(values(zipped))
     do

@@ -168,7 +168,16 @@ defmodule CQL.DataTypes.Encoder do
   def now(unit), do: :erlang.system_time(unit)
 
   def zip(types, values) when is_map(values) do
-    zip_map(types, Enum.to_list(values), [])
+    zip(types, Enum.to_list(values))
+  end
+
+  def zip(types, [{key, _} | _] = values) when is_list(values) and is_atom(key) do
+    values =
+      values
+      |> Enum.map(fn {k, v} -> {Atom.to_string(k), v} end)
+      |> Enum.into(%{})
+
+    Enum.map(types, fn {name, type} -> {type, values[name]} end)
   end
 
   def zip(types, values) when is_list(values) do
@@ -178,23 +187,6 @@ defmodule CQL.DataTypes.Encoder do
   end
 
   def zip(_, values) when is_nil(values), do: nil
-
-  def zip(_, _), do: :error
-
-  def zip_map(_, [], zipped), do: Enum.into(zipped, %{})
-
-  def zip_map(types, [{name, value} | values], zipped) do
-    case List.keyfind(types, to_string(name), 0) do
-      nil ->
-        :error
-      {_, type} ->
-        zip_map(types, values, [{name, {type, value}} | zipped])
-    end
-  end
-
-  def values([{_, _} | _] = list) when is_list(list) do
-    list |> Keyword.values |> values
-  end
 
   def values(list) when is_list(list) do
     parts = Enum.map(list, &CQL.DataTypes.encode/1)

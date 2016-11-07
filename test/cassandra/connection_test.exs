@@ -107,7 +107,7 @@ defmodule Cassandra.ConnectionTest do
       assert {:ok, %CQL.Result.Prepared{}} = Connection.send(conn, request)
     end
 
-    test "Batch", %{conn: conn} do
+    test "Batch with list", %{conn: conn} do
       request = %CQL.Prepare{query: "INSERT INTO #{@table_name} (id, name, age) VALUES (now(), ?, ?);"}
       assert {:ok, insert} = Connection.send(conn, request)
 
@@ -128,6 +128,50 @@ defmodule Cassandra.ConnectionTest do
         Connection.send(conn, request)
 
       assert Enum.all?([["Jesse", 90] | users], fn [name, age] -> Enum.find(rows, &match?([^name, ^age], &1)) end)
+    end
+
+    test "Batch with keyword list", %{conn: conn} do
+      request = %CQL.Prepare{query: "INSERT INTO #{@table_name} (id, age, name) VALUES (now(), ?, ?);"}
+      assert {:ok, insert} = Connection.send(conn, request)
+
+      users = [
+        [name: "Jack", age: 30],
+        [name: "John", age: 31],
+        [name: "Joe", age: 32],
+      ]
+
+      queries = Enum.map(users, &%CQL.BatchQuery{query: insert, values: &1})
+
+      request = %CQL.Batch{queries: queries}
+      assert {:ok, :done} = Connection.send(conn, request)
+
+      request = %CQL.Query{query: "SELECT name, age FROM #{@table_name};"}
+      assert {:ok, %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"], rows: rows}} =
+        Connection.send(conn, request)
+
+      assert Enum.all?(users, fn [name: name, age: age] -> Enum.find(rows, &match?([^name, ^age], &1)) end)
+    end
+
+    test "Batch with map", %{conn: conn} do
+      request = %CQL.Prepare{query: "INSERT INTO #{@table_name} (id, age, name) VALUES (now(), ?, ?);"}
+      assert {:ok, insert} = Connection.send(conn, request)
+
+      users = [
+        %{name: "Jack", age: 30},
+        %{name: "John", age: 31},
+        %{name: "Joe", age: 32},
+      ]
+
+      queries = Enum.map(users, &%CQL.BatchQuery{query: insert, values: &1})
+
+      request = %CQL.Batch{queries: queries}
+      assert {:ok, :done} = Connection.send(conn, request)
+
+      request = %CQL.Query{query: "SELECT name, age FROM #{@table_name};"}
+      assert {:ok, %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"], rows: rows}} =
+        Connection.send(conn, request)
+
+      assert Enum.all?(users, fn %{name: name, age: age} -> Enum.find(rows, &match?([^name, ^age], &1)) end)
     end
 
     test "Rows", %{conn: conn} do
