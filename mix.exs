@@ -3,7 +3,7 @@ defmodule Cassandra.Mixfile do
 
   def project, do: [
     app: :cassandra,
-    version: "1.0.0-beta.1",
+    version: version,
     name: "Cassandra",
     elixir: "~> 1.3",
     build_embedded: Mix.env == :prod,
@@ -15,7 +15,7 @@ defmodule Cassandra.Mixfile do
       "coveralls.post": :test,
       "coveralls.html": :test,
     ],
-    source_url: "https://github.com/cafebazaar.ir/elixir-cassandra",
+    source_url: "https://github.com/cafebazaar/elixir-cassandra",
     description: "A pure Elixir driver for Apache Cassandra",
     package: package,
     docs: docs,
@@ -35,6 +35,8 @@ defmodule Cassandra.Mixfile do
     {:ex_doc, "~> 0.14", only: :dev},
   ]
 
+  defp version, do: "1.0.0-beta.1"
+
   defp docs, do: [
     main: "readme",
     extras: ["README.md"],
@@ -45,6 +47,7 @@ defmodule Cassandra.Mixfile do
     maintainers: ["Ali Rajabi", "Hassan Zamani"],
     links: %{
       "Github" => "https://github.com/cafebazaar/elixir-cassandra",
+      "Docs" => "https://hexdocs.pm/cassandra/#{version}/",
     },
     files: ~w(mix.exs lib README.md LICENSE.md),
   ]
