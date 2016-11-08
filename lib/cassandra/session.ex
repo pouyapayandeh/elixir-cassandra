@@ -62,7 +62,7 @@ defmodule Cassandra.Session do
   `{:error, {code, message}}` when cassandra response is an error
   """
   def execute(session, query, options \\ []) do
-    GenServer.call(session, {:execute, query, options})
+    GenServer.call(session, {:execute, query, options}, :infinity)
   end
 
   @doc """
@@ -71,7 +71,7 @@ defmodule Cassandra.Session do
   It returns `{:ok, query}` on success and `{:error, {code, message}}` when cassandra response is an error
   """
   def prepare(session, statement) do
-    GenServer.call(session, {:prepare, statement})
+    GenServer.call(session, {:prepare, statement}, :infinity)
   end
 
   @doc """
@@ -96,7 +96,7 @@ defmodule Cassandra.Session do
   `{:error, {code, message}}` when cassandra response is an error
   """
   def send(session, request) do
-    GenServer.call(session, {:send, request})
+    GenServer.call(session, {:send, request}, :infinity)
   end
 
   ### GenServer Callbacks ###

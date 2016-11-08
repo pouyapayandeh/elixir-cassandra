@@ -59,8 +59,8 @@ defmodule Cassandra.Cluster do
   @doc """
   Returns the all known hosts of a cluster as map with IPs as key and Cassandra.Host structs as values
   """
-  def hosts(cluster) do
-    GenServer.call(cluster, :hosts)
+  def hosts(cluster, timeout \\ 5000) do
+    GenServer.call(cluster, :hosts, timeout)
   end
 
   @doc false
