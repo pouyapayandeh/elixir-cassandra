@@ -15,7 +15,7 @@ defmodule CQL.DataTypes.Timestamp do
     {timestamp, rest}
   end
 
-  def encode(%NaiveDateTime{microsecond: {microseconds, 3}} = timestamp) do
+  def encode(%NaiveDateTime{microsecond: {microseconds, _}} = timestamp) do
     seconds =
       timestamp
       |> NaiveDateTime.to_erl
@@ -24,9 +24,5 @@ defmodule CQL.DataTypes.Timestamp do
     milliseconds = div(microseconds, 1000)
     n = (seconds - @epoch) * 1000 + milliseconds
     <<n::integer-64>>
-  end
-
-  def encode(%NaiveDateTime{}) do
-    raise ArgumentError, message: "timestamp requires milliseconds"
   end
 end

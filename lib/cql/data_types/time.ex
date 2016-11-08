@@ -13,7 +13,7 @@ defmodule CQL.DataTypes.Time do
     {time, rest}
   end
 
-  def encode(%Time{microsecond: {microseconds, 6}} = time) do
+  def encode(%Time{microsecond: {microseconds, _}} = time) do
     seconds =
       time
       |> Time.to_erl
@@ -22,9 +22,5 @@ defmodule CQL.DataTypes.Time do
     micro = seconds * 1000_000 + microseconds
     nano = micro * 1000
     <<nano::integer-64>>
-  end
-
-  def encode(%NaiveDateTime{}) do
-    raise ArgumentError, message: "time requires milliseconds"
   end
 end
