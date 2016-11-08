@@ -2,6 +2,7 @@ defmodule CQL.DataTypes.Decoder do
   @moduledoc false
 
   require Bitwise
+  require Logger
 
   def decode({type, buffer}), do: decode(buffer, type)
   def decode(buffer, type) do
@@ -186,6 +187,10 @@ defmodule CQL.DataTypes.Decoder do
     {{unscaled, scale}, buffer}
   end
 
+  def date(buffer), do: CQL.DataTypes.Date.decode(buffer)
+  def time(buffer), do: CQL.DataTypes.Time.decode(buffer)
+  def timestamp(b), do: CQL.DataTypes.Timestamp.decode(b)
+
   def consistency(buffer) do
     {code, buffer} = short(buffer)
     {CQL.Consistency.name(code), buffer}
@@ -255,7 +260,7 @@ defmodule CQL.DataTypes.Decoder do
   defp dec(buffer, :blob     ), do: {buffer, ""}
   defp dec(buffer, :boolean  ), do: boolean(buffer)
   defp dec(buffer, :counter  ), do: long(buffer)
-  defp dec(buffer, :date     ), do: CQL.DataTypes.Date.decode(buffer)
+  defp dec(buffer, :date     ), do: date(buffer)
   defp dec(buffer, :decimal  ), do: decimal(buffer)
   defp dec(buffer, :double   ), do: double(buffer)
   defp dec(buffer, :float    ), do: float(buffer)
@@ -263,8 +268,8 @@ defmodule CQL.DataTypes.Decoder do
   defp dec(buffer, :int      ), do: int(buffer)
   defp dec(buffer, :smallint ), do: short(buffer)
   defp dec(buffer, :text     ), do: {buffer, ""}
-  defp dec(buffer, :time     ), do: long(buffer)
-  defp dec(buffer, :timestamp), do: long(buffer)
+  defp dec(buffer, :time     ), do: time(buffer)
+  defp dec(buffer, :timestamp), do: timestamp(buffer)
   defp dec(buffer, :timeuuid ), do: uuid(buffer)
   defp dec(buffer, :tinyint  ), do: tinyint(buffer)
   defp dec(buffer, :uuid     ), do: uuid(buffer)

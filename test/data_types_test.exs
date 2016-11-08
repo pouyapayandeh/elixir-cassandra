@@ -36,7 +36,23 @@ defmodule CQL.DataTypesTest do
 
   test "date" do
     date = DateTime.utc_now |> DateTime.to_date
-    assert date == date |> encode(:date) |> has_size(4) |> decode(:date)
+    assert date == date |> encode(:date) |> drop_size |> decode(:date)
+  end
+
+  test "time" do
+    time = DateTime.utc_now |> DateTime.to_time
+    assert time == time |> encode(:time) |> drop_size |> decode(:time)
+
+    time = ~T[01:20:59.999999]
+    assert time == time |> encode(:time) |> drop_size |> decode(:time)
+
+    time = ~T[01:20:33.567890]
+    assert time == time |> encode(:time) |> drop_size |> decode(:time)
+  end
+
+  test "timestamp" do
+    time = ~N[2016-02-03 04:05:06.007]
+    assert time == time |> encode(:timestamp) |> drop_size |> decode(:timestamp)
   end
 
   test "decimal" do

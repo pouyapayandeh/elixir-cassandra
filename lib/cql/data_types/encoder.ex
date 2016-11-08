@@ -2,8 +2,11 @@ defmodule CQL.DataTypes.Encoder do
   @moduledoc false
 
   require Bitwise
+  require Logger
 
   def encode(nil),                            do: encode({nil, nil})
+  def encode(%NaiveDateTime{} = value),       do: encode({:timestamp, value})
+  def encode(%Time{} = value),                do: encode({:time, value})
   def encode(%Date{} = value),                do: encode({:date, value})
   def encode(value) when is_integer(value),   do: encode({:int, value})
   def encode(value) when is_float(value),     do: encode({:double, value})
@@ -146,10 +149,12 @@ defmodule CQL.DataTypes.Encoder do
     int(scale) <> varint(unscaled)
   end
 
+  def date(date), do: CQL.DataTypes.Date.encode(date)
+  def time(time), do: CQL.DataTypes.Time.encode(time)
+  def timestamp(t), do: CQL.DataTypes.Timestamp.encode(t)
+
   def consistency(name) do
-    name
-    |> CQL.Consistency.code
-    |> short
+    name |> CQL.Consistency.code |> short
   end
 
   ### Helpers ###
@@ -164,8 +169,6 @@ defmodule CQL.DataTypes.Encoder do
 
   def ok(:error), do: :error
   def ok(value),  do: {:ok, value}
-
-  def now(unit), do: :erlang.system_time(unit)
 
   def zip(types, values) when is_map(values) do
     zip(types, Enum.to_list(values))
@@ -192,6 +195,7 @@ defmodule CQL.DataTypes.Encoder do
     parts = Enum.map(list, &CQL.DataTypes.encode/1)
 
     if Enum.any?(parts, &(&1 == :error)) do
+      Logger.error("Failed to encode values #{inspect list} with parts: #{inspect parts}")
       :error
     else
       n = Enum.count(list)
@@ -205,6 +209,7 @@ defmodule CQL.DataTypes.Encoder do
     end
 
     if Enum.any?(parts, &(&1 == :error)) do
+      Logger.error("Failed to encode values #{inspect map} with parts: #{inspect parts}")
       :error
     else
       n = Enum.count(map)
@@ -231,7 +236,7 @@ defmodule CQL.DataTypes.Encoder do
   defp enc(:boolean,   true),  do: byte(1)
   defp enc(:boolean,   false), do: byte(0)
   defp enc(:counter,   value), do: long(value)
-  defp enc(:date,      value), do: CQL.DataTypes.Date.encode(value)
+  defp enc(:date,      value), do: date(value)
   defp enc(:decimal,   value), do: decimal(value)
   defp enc(:double,    value), do: double(value)
   defp enc(:float,     value), do: float(value)
@@ -239,10 +244,8 @@ defmodule CQL.DataTypes.Encoder do
   defp enc(:int,       value), do: int(value)
   defp enc(:smallint,  value), do: short(value)
   defp enc(:text,      value), do: value
-  defp enc(:timestamp, :now ), do: enc(:timestamp, now(:milliseconds))
-  defp enc(:timestamp, value), do: long(value)
-  defp enc(:time,      :now ), do: enc(:time, now(:nanosecond))
-  defp enc(:time,      value), do: long(value)
+  defp enc(:time,      value), do: time(value)
+  defp enc(:timestamp, value), do: timestamp(value)
   defp enc(:timeuuid,  value), do: uuid(value)
   defp enc(:tinyint,   value), do: tinyint(value)
   defp enc(:uuid,      value), do: uuid(value)

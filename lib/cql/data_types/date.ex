@@ -18,5 +18,4 @@ defmodule CQL.DataTypes.Date do
     n = days - @epoch
     <<n::integer-32>>
   end
-
 end
