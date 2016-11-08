@@ -117,11 +117,6 @@ defmodule Cassandra.Connection do
     ref
   end
 
-  @doc false
-  def send_fail?({:ok, _}), do: false
-  def send_fail?({:error, {_, _}}), do: false # is cql error
-  def send_fail?({:error, _}), do: true # is connection error
-
   @doc """
   Stops the connection server with the given `reason`.
   """

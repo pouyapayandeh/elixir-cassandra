@@ -104,7 +104,8 @@ defmodule Cassandra.Session do
   @doc false
   def init([cluster, options]) do
     balancer = Keyword.get(options, :balancer, @default_balancer)
-    retry = Keyword.get(options, :retry, &retry?/1)
+    retry = Keyword.get(options, :retry, &retry?/3)
+    retry_args = Keyword.get(options, :retry, [0])
 
     connection_options = Keyword.take(options, [
       :port,
@@ -129,6 +130,7 @@ defmodule Cassandra.Session do
       options: options,
       balancer: balancer,
       retry: retry,
+      retry_args: retry_args,
       hosts: %{},
       requests: [],
       statements: %{},
@@ -284,11 +286,11 @@ defmodule Cassandra.Session do
     handle_send(request, {self, ref}, next_state)
   end
 
-  defp handle_send(request, from, %{hosts: hosts, balancer: balancer, retry: retry} = state) do
+  defp handle_send(request, from, %{hosts: hosts, balancer: balancer} = state) do
     if open_connections_count(hosts) < 1 do
       {:noreply, %{state | requests: [{from, request} | state.requests]}}
     else
-      start_task({from, request}, hosts, balancer, retry)
+      start_task({from, request}, hosts, balancer, state.retry, state.retry_args)
       {:noreply, state}
     end
   end
@@ -318,7 +320,7 @@ defmodule Cassandra.Session do
           queries = Enum.map(values, &%CQL.BatchQuery{query: prepared, values: &1})
           struct(CQL.Batch, Keyword.put(options, :queries, queries))
       end
-      start_task({from, execute}, preferred_hosts, state.balancer, state.retry)
+      start_task({from, execute}, preferred_hosts, state.balancer, state.retry, state.retry_args)
       {:noreply, state}
     end
   end
@@ -342,15 +344,15 @@ defmodule Cassandra.Session do
     |> Enum.map(&key/1)
   end
 
-  defp start_task({from, request}, hosts, balancer, retry) do
+  defp start_task({from, request}, hosts, balancer, retry, args) do
     conns = select(request, hosts, balancer)
-    Task.start(Worker, :send_request, [request, from, conns, retry])
+    Task.start(Worker, :send_request, [request, from, conns, retry, args])
   end
 
-  defp send_requests(%{hosts: hosts, balancer: balancer, retry: retry} = state) do
+  defp send_requests(%{hosts: hosts, balancer: balancer} = state) do
     state.requests
     |> Enum.reverse
-    |> Enum.each(&start_task(&1, hosts, balancer, retry))
+    |> Enum.each(&start_task(&1, hosts, balancer, state.retry, state.retry_args))
 
     %{state | requests: []}
   end
@@ -404,5 +406,18 @@ defmodule Cassandra.Session do
     |> Enum.into(%{})
   end
 
-  defp retry?(_request), do: true
+  defp retry?(_request, _result, 3), do: {false, nil}
+  defp retry?(_request, result, n) do
+    retry = case result do
+      {:ok, _} -> false
+      {:error, {:read_timeout, _}} -> true
+      {:error, {_, _}} -> false # cql error
+      {:error, _} -> true # connection error
+    end
+    if retry == true and n < 3 do
+      {true, [n + 1]}
+    else
+      {false, []}
+    end
+  end
 end
