@@ -103,6 +103,10 @@ defmodule Cassandra.Session do
 
   @doc false
   def init([cluster, options]) do
+    task_supervisor = Keyword.get_lazy options, :task_supervisor, fn ->
+      {:ok, pid} = Task.Supervisor.start_link
+      pid
+    end
     balancer = Keyword.get(options, :balancer, @default_balancer)
     retry = Keyword.get(options, :retry, &retry?/3)
     retry_args = Keyword.get(options, :retry, [0])
@@ -131,6 +135,7 @@ defmodule Cassandra.Session do
       balancer: balancer,
       retry: retry,
       retry_args: retry_args,
+      task_supervisor: task_supervisor,
       hosts: %{},
       requests: [],
       statements: %{},
@@ -286,11 +291,11 @@ defmodule Cassandra.Session do
     handle_send(request, {self, ref}, next_state)
   end
 
-  defp handle_send(request, from, %{hosts: hosts, balancer: balancer} = state) do
+  defp handle_send(request, from, %{hosts: hosts} = state) do
     if open_connections_count(hosts) < 1 do
       {:noreply, %{state | requests: [{from, request} | state.requests]}}
     else
-      start_task({from, request}, hosts, balancer, state.retry, state.retry_args)
+      start_task({from, request}, hosts, state)
       {:noreply, state}
     end
   end
@@ -320,7 +325,7 @@ defmodule Cassandra.Session do
           queries = Enum.map(values, &%CQL.BatchQuery{query: prepared, values: &1})
           struct(CQL.Batch, Keyword.put(options, :queries, queries))
       end
-      start_task({from, execute}, preferred_hosts, state.balancer, state.retry, state.retry_args)
+      start_task({from, execute}, preferred_hosts, state)
       {:noreply, state}
     end
   end
@@ -344,15 +349,17 @@ defmodule Cassandra.Session do
     |> Enum.map(&key/1)
   end
 
-  defp start_task({from, request}, hosts, balancer, retry, args) do
-    conns = select(request, hosts, balancer)
-    Task.start(Worker, :send_request, [request, from, conns, retry, args])
+  defp start_task({from, request}, hosts, state) do
+    conns = select(request, hosts, state.balancer)
+    Task.Supervisor.start_child state.task_supervisor, fn ->
+      Worker.send_request(request, from, conns, state.retry, state.retry_args)
+    end
   end
 
-  defp send_requests(%{hosts: hosts, balancer: balancer} = state) do
+  defp send_requests(%{hosts: hosts} = state) do
     state.requests
     |> Enum.reverse
-    |> Enum.each(&start_task(&1, hosts, balancer, state.retry, state.retry_args))
+    |> Enum.each(&start_task(&1, hosts, state))
 
     %{state | requests: []}
   end

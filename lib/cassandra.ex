@@ -25,6 +25,7 @@ defmodule Cassandra do
 
       @cluster __MODULE__.Cluster
       @session __MODULE__.Session
+      @task_supervisor __MODULE__.Session.Workers
 
       def start_link(options \\ []) do
         Supervisor.start_link(__MODULE__, options)
@@ -39,13 +40,17 @@ defmodule Cassandra do
             opts
         end
 
-        options = Keyword.merge(config, options)
+        options =
+          options
+          |> Keyword.merge(options)
+          |> Keyword.put(:task_supervisor, @task_supervisor)
 
         {contact_points, options} = Keyword.pop(options, :contact_points, ["127.0.0.1"])
 
         children = [
-          worker(Cluster, [contact_points, [], [name: @cluster]]),
-          worker(Session, [@cluster, options, [name: @session]])
+          worker(Cluster, [contact_points, options, [name: @cluster]]),
+          worker(Session, [@cluster, options, [name: @session]]),
+          supervisor(Task.Supervisor, [[name: @task_supervisor]])
         ]
 
         supervise(children, strategy: :rest_for_one)

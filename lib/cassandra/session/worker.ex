@@ -10,7 +10,7 @@ defmodule Cassandra.Session.Worker do
   def send_request(request, from, [conn | conns], retry?, args) do
     Logger.debug("#{__MODULE__} sending request on #{inspect conn}")
 
-    result = Cassandra.Connection.send(conn, request)
+    result = Cassandra.Connection.send(conn, request, :infinity)
 
     {retry, args} = apply(retry?, [request, result | args])
     if retry do
