@@ -11,7 +11,9 @@ defmodule Cassandra.TestHelper do
   def keyspace, do: @keyspace
 
   def host do
-    System.get_env("CASSANDRA_SEED") || "127.0.0.1"
+    System.get_env("CASSANDRA_CONTACT_POINTS") || "127.0.0.1"
+    |> String.split(",")
+    |> hd
   end
 
   def drop_keyspace do
