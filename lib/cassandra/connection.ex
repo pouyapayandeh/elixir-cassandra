@@ -276,7 +276,8 @@ defmodule Cassandra.Connection do
 
   defp handle_data(data, %{buffer: buffer} = state) do
     case CQL.decode(buffer <> data) do
-      {%Frame{stream: id} = frame, rest} ->
+      {%Frame{stream: id, warnings: warnings} = frame, rest} ->
+        Enum.each(warnings, &Logger.warn/1)
         result = case id do
           -1 -> handle_event(frame, state)
            0 -> {:ok, state}
