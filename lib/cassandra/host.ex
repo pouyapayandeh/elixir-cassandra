@@ -3,8 +3,6 @@ defmodule Cassandra.Host do
   Represents a Cassandra host
   """
 
-  require Logger
-
   defstruct [
     :ip,
     :id,
