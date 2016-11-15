@@ -15,6 +15,10 @@ defmodule CQL.DataTypes.Timestamp do
     {timestamp, rest}
   end
 
+  def encode(%DateTime{} = timestamp) do
+    timestamp |> DateTime.to_naive |> encode
+  end
+
   def encode(%NaiveDateTime{microsecond: {microseconds, _}} = timestamp) do
     seconds =
       timestamp
