@@ -113,6 +113,7 @@ defmodule CQL.DataTypes.Encoder do
     int(size) <> <<buffer::bytes>>
   end
 
+  def map(map, {type}), do: map(map, {:text, type})
   def map(map, {ktype, vtype}) do
     size = Enum.count(map)
     buffer =
