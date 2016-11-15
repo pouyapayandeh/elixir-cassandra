@@ -3,13 +3,16 @@ defmodule CQL.Frame do
 
   import CQL.DataTypes.Encoder
 
+  alias CQL.DataTypes.Decoder
 
   defstruct [
     version: 0x04,
-    flags: 0x00,
+    flags: [],
     stream: 0,
     opration: 0,
     length: 0,
+    warnings: [],
+    tracing_id: nil,
     body: "",
   ]
 
@@ -34,10 +37,17 @@ defmodule CQL.Frame do
 
   @operation_names @operations |> Enum.map(fn {k, v} -> {v, k} end) |> Enum.into(%{})
 
+  @flags %{
+    :compression    => 0x01,
+    :tracing        => 0x02,
+    :custom_payload => 0x04,
+    :warning        => 0x08,
+  }
+
   def encode(%__MODULE__{} = f) do
     Enum.join [
       byte(f.version),
-      byte(f.flags),
+      byte(names_to_flag(f.flags, @flags)),
       short(f.stream),
       byte(Map.fetch!(@operations, f.opration)),
       int(byte_size(f.body)),
@@ -55,14 +65,33 @@ defmodule CQL.Frame do
       rest::binary,
     >>)
   do
+    flags = Decoder.flag_to_names(flags, @flags)
+
+    {tracing_id, body} =
+      if :tracing in flags do
+        Decoder.uuid(body)
+      else
+        {nil, body}
+      end
+
+    {warnings, body} =
+      if :warning in flags do
+        Decoder.string_list(body)
+      else
+        {[], body}
+      end
+
     frame = %__MODULE__{
       version: version,
       flags: flags,
+      warnings: warnings,
+      tracing_id: tracing_id,
       stream: stream,
       opration: Map.fetch!(@operation_names, opcode),
       length: length,
       body: body,
     }
+
     {frame, rest}
   end
 

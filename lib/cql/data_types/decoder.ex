@@ -202,6 +202,12 @@ defmodule CQL.DataTypes.Decoder do
     Bitwise.band(flag, flags) == flag
   end
 
+  def flag_to_names(flag, flags) do
+    flags
+    |> Enum.filter(fn {_, code} -> Bitwise.band(flag, code) == code end)
+    |> Enum.map(fn {name, _} -> name end)
+  end
+
   def ntimes(n, func, buffer) do
     ntimes(n, func, buffer, [])
   end

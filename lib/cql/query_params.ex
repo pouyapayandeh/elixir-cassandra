@@ -26,12 +26,6 @@ defmodule CQL.QueryParams do
     :with_names              => 0x40,
   }
 
-  def flags(flags) do
-    flags
-    |> Enum.map(&Map.fetch!(@flags, &1))
-    |> Enum.reduce(0, &Bitwise.bor(&1, &2))
-  end
-
   def encode(q = %__MODULE__{values: values}) when is_nil(values) do
     encode(q, false, false, nil)
   end
@@ -61,7 +55,7 @@ defmodule CQL.QueryParams do
       |> prepend(:with_serial_consistency, q.serial_consistency)
       |> prepend(:with_default_timestamp, has_timestamp)
       |> prepend(:with_names, has_names)
-      |> flags
+      |> names_to_flag(@flags)
       |> byte
 
     q.consistency

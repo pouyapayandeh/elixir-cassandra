@@ -30,12 +30,6 @@ defmodule CQL.Batch do
       :with_names              => 0x40,
     }
 
-    defp flags(flags) do
-      flags
-      |> Enum.map(&Map.fetch!(@flags, &1))
-      |> Enum.reduce(0, &Bitwise.bor(&1, &2))
-    end
-
     def encode(%Batch{} = b) do
       has_timestamp = is_integer(b.timestamp) and b.timestamp > 0
 
@@ -43,7 +37,7 @@ defmodule CQL.Batch do
         []
         |> prepend(:with_serial_consistency, b.serial_consistency)
         |> prepend(:with_default_timestamp, has_timestamp)
-        |> flags
+        |> names_to_flag(@flags)
 
       queries = Enum.map(b.queries, &CQL.BatchQuery.encode(&1))
 

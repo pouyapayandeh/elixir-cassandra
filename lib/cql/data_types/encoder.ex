@@ -171,6 +171,12 @@ defmodule CQL.DataTypes.Encoder do
   def ok(:error), do: :error
   def ok(value),  do: {:ok, value}
 
+  def names_to_flag(names, flags) do
+    names
+    |> Enum.map(&Map.fetch!(flags, &1))
+    |> Enum.reduce(0, &Bitwise.bor(&1, &2))
+  end
+
   def zip(types, values) when is_map(values) do
     zip(types, Enum.to_list(values))
   end
