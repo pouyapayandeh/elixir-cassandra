@@ -150,6 +150,9 @@ defmodule CQL.DataTypes.Encoder do
     int(scale) <> varint(unscaled)
   end
 
+  def text(value) when is_atom(value), do: Atom.to_string(value)
+  def text(value) when is_binary(value), do: value
+
   def date(date), do: CQL.DataTypes.Date.encode(date)
   def time(time), do: CQL.DataTypes.Time.encode(time)
   def timestamp(t), do: CQL.DataTypes.Timestamp.encode(t)
@@ -250,13 +253,13 @@ defmodule CQL.DataTypes.Encoder do
   defp enc(:inet,      value), do: inet(value)
   defp enc(:int,       value), do: int(value)
   defp enc(:smallint,  value), do: short(value)
-  defp enc(:text,      value), do: value
+  defp enc(:text,      value), do: text(value)
   defp enc(:time,      value), do: time(value)
   defp enc(:timestamp, value), do: timestamp(value)
   defp enc(:timeuuid,  value), do: uuid(value)
   defp enc(:tinyint,   value), do: tinyint(value)
   defp enc(:uuid,      value), do: uuid(value)
-  defp enc(:varchar,   value), do: value
+  defp enc(:varchar,   value), do: text(value)
   defp enc(:varint,    value), do: varint(value)
 
   defp enc({:list, type},   value), do: list(value, type)

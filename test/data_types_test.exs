@@ -129,6 +129,10 @@ defmodule CQL.DataTypesTest do
     for {type, map} <- maps do
       assert map == map |> encode({:map, type}) |> drop_size |> decode({:map, type})
     end
+
+    map = %{a: 10, b: 20, c: 30}
+    [{type, expected} | _] = maps
+    assert expected == map |> encode({:map, type}) |> drop_size |> decode({:map, type})
   end
 
   test "tuple" do
