@@ -11,7 +11,7 @@ defmodule CQL.DataTypes.Encoder do
   def encode(%Date{} = value),                do: encode({:date, value})
   def encode(value) when is_integer(value),   do: encode({:int, value})
   def encode(value) when is_float(value),     do: encode({:double, value})
-  def encode(value) when is_bitstring(value), do: encode({:text, value})
+  def encode(value) when is_binary(value),    do: encode({:text, value})
   def encode(value) when is_boolean(value),   do: encode({:boolean, value})
   def encode({_,_,_,_} = value),              do: encode({:inet, value})
   def encode({_,_,_,_,_,_} = value),          do: encode({:inet, value})
@@ -45,17 +45,22 @@ defmodule CQL.DataTypes.Encoder do
   def double(x) when is_float(x), do: <<x::float-64>>
   def double(_), do: :error
 
-  def string(str) when is_bitstring(str), do: (str |> String.length |> short) <> <<str::bytes>>
+  def string(str) when is_binary(str), do: (str |> String.length |> short) <> <<str::bytes>>
   def string(_), do: :error
 
-  def long_string(str) when is_bitstring(str), do: (str |> String.length |> int) <> <<str::bytes>>
+  def long_string(str) when is_binary(str), do: (str |> String.length |> int) <> <<str::bytes>>
   def long_string(_), do: :error
 
-  def uuid(str) when is_bitstring(str), do: UUID.string_to_binary!(str)
-  def uuid(_), do: :error
+  def uuid(str) do
+    try do
+      UUID.string_to_binary!(str)
+    rescue
+      ArgumentError -> :error
+    end
+  end
 
   def string_list(list) when is_list(list) do
-    if Enum.all?(list, &is_bitstring/1) do
+    if Enum.all?(list, &is_binary/1) do
       n = Enum.count(list)
       buffer = list |> Enum.map(&string/1) |> Enum.join
       short(n) <> <<buffer::bytes>>
@@ -77,7 +82,7 @@ defmodule CQL.DataTypes.Encoder do
   def inet(_), do: :error
 
   def string_map(map) when is_map(map) do
-    if map |> Map.values |> Enum.all?(&is_bitstring/1) do
+    if map |> Map.values |> Enum.all?(&is_binary/1) do
       n = Enum.count(map)
       buffer = map |> Enum.map(fn {k, v} -> string(k) <> string(v) end) |> Enum.join
       short(n) <> <<buffer::bytes>>

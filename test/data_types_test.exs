@@ -153,6 +153,15 @@ defmodule CQL.DataTypesTest do
     end
   end
 
+  test "uuid" do
+    uuids = [UUID.uuid1, UUID.uuid4]
+    for uuid <- uuids do
+      assert uuid == uuid |> encode(:uuid) |> drop_size |> decode(:uuid)
+    end
+
+    assert :error == encode("bad id", :uuid)
+  end
+
   defp drop_size(<<_::integer-32, rest::bytes>>), do: rest
 
   defp has_size(buffer, size) do
