@@ -6,12 +6,15 @@ defmodule CQL.DataTypes.Encoder do
 
   def encode(nil),                            do: encode({nil, nil})
   def encode(%NaiveDateTime{} = value),       do: encode({:timestamp, value})
+  def encode(%DateTime{} = value),            do: encode({:timestamp, value})
   def encode(%Time{} = value),                do: encode({:time, value})
   def encode(%Date{} = value),                do: encode({:date, value})
   def encode(value) when is_integer(value),   do: encode({:int, value})
   def encode(value) when is_float(value),     do: encode({:double, value})
   def encode(value) when is_bitstring(value), do: encode({:text, value})
   def encode(value) when is_boolean(value),   do: encode({:boolean, value})
+  def encode({_,_,_,_} = value),              do: encode({:inet, value})
+  def encode({_,_,_,_,_,_} = value),          do: encode({:inet, value})
 
   def encode({type, value}), do: encode(value, type)
 
