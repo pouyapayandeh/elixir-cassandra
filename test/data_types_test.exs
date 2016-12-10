@@ -22,6 +22,21 @@ defmodule CQL.DataTypesTest do
     end
   end
 
+  test "blob terms" do
+    terms = [
+      nil,
+      100,
+      100.001,
+      [1, 2, 3],
+      %{a: 1, b: 2, c: "last"},
+      true,
+    ]
+
+    for term <- terms do
+      assert term == term |> encode(:blob) |> drop_size |> decode(:blob)
+    end
+  end
+
   property "boolean" do
     for_all b in bool do
       b == b |> encode(:boolean) |> has_size(1) |> decode(:boolean)

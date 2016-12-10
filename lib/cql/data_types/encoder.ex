@@ -161,6 +161,8 @@ defmodule CQL.DataTypes.Encoder do
   def text(value) when is_atom(value), do: Atom.to_string(value)
   def text(value) when is_binary(value), do: value
 
+  def blob(value), do: :erlang.term_to_binary(value)
+
   def date(date), do: CQL.DataTypes.Date.encode(date)
   def time(time), do: CQL.DataTypes.Time.encode(time)
   def timestamp(t), do: CQL.DataTypes.Timestamp.encode(t)
@@ -245,12 +247,13 @@ defmodule CQL.DataTypes.Encoder do
   defp int_bytes(x, acc) when x < -128 and x >= -256, do: acc + 2
   defp int_bytes(x, acc), do: int_bytes(Bitwise.bsr(x, 8), acc + 1)
 
+  defp enc(:blob,      value), do: blob(value)
+
   defp enc(_type, nil), do: int(-1)
   defp enc(_type, :not_set), do: int(-2)
 
   defp enc(:ascii,     value), do: value
   defp enc(:bigint,    value), do: long(value)
-  defp enc(:blob,      value), do: value
   defp enc(:boolean,   true),  do: byte(1)
   defp enc(:boolean,   false), do: byte(0)
   defp enc(:counter,   value), do: long(value)

@@ -187,6 +187,15 @@ defmodule CQL.DataTypes.Decoder do
     {{unscaled, scale}, buffer}
   end
 
+  def blob(buffer) do
+    try do
+      term = :erlang.binary_to_term(buffer)
+      {term, ""}
+    rescue
+      ArgumentError -> {buffer, ""}
+    end
+  end
+
   def date(buffer), do: CQL.DataTypes.Date.decode(buffer)
   def time(buffer), do: CQL.DataTypes.Time.decode(buffer)
   def timestamp(b), do: CQL.DataTypes.Timestamp.decode(b)
@@ -263,7 +272,7 @@ defmodule CQL.DataTypes.Decoder do
   defp dec(nil,    _         ), do: {nil, ""}
   defp dec(buffer, :ascii    ), do: {buffer, ""}
   defp dec(buffer, :bigint   ), do: long(buffer)
-  defp dec(buffer, :blob     ), do: {buffer, ""}
+  defp dec(buffer, :blob     ), do: blob(buffer)
   defp dec(buffer, :boolean  ), do: boolean(buffer)
   defp dec(buffer, :counter  ), do: long(buffer)
   defp dec(buffer, :date     ), do: date(buffer)
