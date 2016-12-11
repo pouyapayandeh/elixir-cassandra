@@ -48,7 +48,7 @@ defmodule CQL.Frame do
     Enum.join [
       byte(f.version),
       byte(names_to_flag(f.flags, @flags)),
-      short(f.stream),
+      signed_short(f.stream),
       byte(Map.fetch!(@operations, f.opration)),
       int(byte_size(f.body)),
       f.body,

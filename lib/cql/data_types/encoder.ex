@@ -30,6 +30,9 @@ defmodule CQL.DataTypes.Encoder do
   def tinyint(n) when is_integer(n), do: <<n::signed-integer-8>>
   def tinyint(_), do: :error
 
+  def signed_short(n) when is_integer(n), do: <<n::signed-integer-16>>
+  def signed_short(_), do: :error
+
   def short(n) when is_integer(n), do: <<n::integer-16>>
   def short(_), do: :error
 

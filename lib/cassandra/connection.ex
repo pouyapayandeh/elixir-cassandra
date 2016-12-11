@@ -306,36 +306,42 @@ defmodule Cassandra.Connection do
   end
 
   defp handle_response(%Frame{stream: id, body: {%Rows{} = data, nil}}, state) do
-    {{_, from}, next_state} = pop_in(state.streams[id])
-    case from do
-      {:gen_event, manager} ->
-        Enum.map(data.rows, &GenEvent.ack_notify(manager, &1))
-        GenEvent.stop(manager)
+    with {{_, from}, next_state} <- pop_in(state.streams[id]) do
+      case from do
+        {:gen_event, manager} ->
+          Enum.map(data.rows, &GenEvent.ack_notify(manager, &1))
+          GenEvent.stop(manager)
 
-      from ->
-        Connection.reply(from, {:ok, data})
+        from ->
+          Connection.reply(from, {:ok, data})
+      end
+      {:ok, next_state}
+    else
+      _ -> {:error, {:invalid, :stream}}
     end
-    {:ok, next_state}
   end
 
   defp handle_response(%Frame{stream: id, body: {%Rows{rows: rows} = data, paging}}, state) do
-    {{request, from}, next_state} = pop_in(state.streams[id])
-    manager = case from do
-      {:gen_event, manager} ->
-        manager
+    with {{request, from}, next_state} <- pop_in(state.streams[id]) do
+      manager = case from do
+        {:gen_event, manager} ->
+          manager
 
-      from ->
-        {:ok, manager} = GenEvent.start_link
-        stream = GenEvent.stream(manager)
-        Connection.reply(from, {:ok, %{data | rows: stream, rows_count: nil}})
-        manager
+        from ->
+          {:ok, manager} = GenEvent.start_link
+          stream = GenEvent.stream(manager)
+          Connection.reply(from, {:ok, %{data | rows: stream, rows_count: nil}})
+          manager
+      end
+
+      Enum.map(rows, &GenEvent.ack_notify(manager, &1))
+
+      next_request = %{request | params: %{request.params | paging_state: paging}}
+
+      send_request(next_request, {:gen_event, manager}, next_state)
+    else
+      _ -> {:error, {:invalid, :stream}}
     end
-
-    Enum.map(rows, &GenEvent.ack_notify(manager, &1))
-
-    next_request = %{request | params: %{request.params | paging_state: paging}}
-
-    send_request(next_request, {:gen_event, manager}, next_state)
   end
 
   defp handle_response(%Frame{stream: 1, body: body}, state) do
@@ -512,7 +518,7 @@ defmodule Cassandra.Connection do
     Session.notify(session, {message, {id, self}})
   end
 
-  defp next_stream_id(32768), do: 2
+  defp next_stream_id(32_000), do: 2
   defp next_stream_id(n), do: n + 1
 
   defp hash(request) when is_bitstring(request) do
