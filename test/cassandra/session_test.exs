@@ -23,18 +23,18 @@ defmodule Cassandra.SessionTest do
   setup_all do
     {:ok, cluster} = Cluster.start_link([@host])
     {:ok, session} = Session.start_link(cluster, [keyspace: @keyspace])
-    {:ok, _} = Session.execute(session, @create_table)
+    %{result: {:ok, _}} = Session.execute(session, @create_table)
 
     {:ok, %{session: session}}
   end
 
   setup %{session: session} do
-    {:ok, :done} = Session.execute(session, @truncate_table)
+    %{result: {:ok, :done}} = Session.execute(session, @truncate_table)
     :ok
   end
 
   test "execute", %{session: session} do
-    {:ok, %CQL.Result.Rows{}} = Session.execute(session, "SELECT * FROM system_schema.tables")
+    %{result: {:ok, %CQL.Result.Rows{}}} = Session.execute(session, "SELECT * FROM system_schema.tables")
   end
 
   test "prepare", %{session: session} do
@@ -49,10 +49,10 @@ defmodule Cassandra.SessionTest do
 
     assert characters
       |> Enum.map(&Session.execute(session, insert, values: &1))
-      |> Enum.map(&match?({:ok, _}, &1))
+      |> Enum.map(&match?(%{result: {:ok, _}}, &1))
       |> Enum.all?
 
-    assert {:ok, rows} = Session.execute(session, "SELECT name, age FROM people;")
+    assert %{result: {:ok, rows}} = Session.execute(session, "SELECT name, age FROM people;")
     assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} = rows
 
     for char <- characters do
@@ -69,9 +69,9 @@ defmodule Cassandra.SessionTest do
       ["Gandolf", 2019],
     ]
 
-    assert {:ok, :done} = Session.execute(session, {insert, characters})
+    assert %{result: {:ok, :done}} = Session.execute(session, {insert, characters})
 
-    assert {:ok, rows} = Session.execute(session, "SELECT name, age FROM people;")
+    assert %{result: {:ok, rows}} = Session.execute(session, "SELECT name, age FROM people;")
     assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} = rows
 
     for [name, age] <- characters do
@@ -80,6 +80,6 @@ defmodule Cassandra.SessionTest do
   end
 
   test "send", %{session: session} do
-    assert {:ok, %CQL.Supported{}} = Session.send(session, %CQL.Options{})
+    assert %{result: {:ok, %CQL.Supported{}}} = Session.send(session, %CQL.Options{})
   end
 end

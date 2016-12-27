@@ -136,8 +136,7 @@ defmodule Cassandra.Session do
       cluster: cluster,
       options: options,
       balancer: balancer,
-      retry: retry,
-      retry_args: retry_args,
+      retry: {retry, retry_args},
       task_supervisor: task_supervisor,
       hosts: %{},
       requests: [],
@@ -269,17 +268,17 @@ defmodule Cassandra.Session do
 
       {{from, statement}, state} ->
         reply = case result do
-          {:ok, _}        -> {:ok, statement}
-          {:error, error} -> error
+          %{result: {:ok, _}}        -> {:ok, statement}
+          %{result: {:error, error}} -> error
         end
         GenServer.reply(from, reply)
         {:noreply, state}
 
       {{from, prepare, batch_list, hash, options}, state} ->
         case result do
-          {:ok, _} ->
+          %{result: {:ok, _}} ->
             execute(prepare, batch_list, hash, options, from, state)
-          {:error, error} ->
+          %{result: {:error, error}} ->
             GenServer.reply(from, error)
             {:noreply, state}
         end
@@ -295,10 +294,11 @@ defmodule Cassandra.Session do
   end
 
   defp handle_send(request, from, %{hosts: hosts} = state) do
+    start_time = :erlang.monotonic_time
     if open_connections_count(hosts) < 1 do
-      {:noreply, %{state | requests: [{from, request} | state.requests]}}
+      {:noreply, %{state | requests: [{from, request, start_time} | state.requests]}}
     else
-      start_task({from, request}, hosts, state)
+      start_task({from, request, start_time}, hosts, state)
       {:noreply, state}
     end
   end
@@ -311,6 +311,7 @@ defmodule Cassandra.Session do
   end
 
   defp execute(prepare, batch_list, hash, options, from, state) do
+    start_time = :erlang.monotonic_time
     preferred_hosts =
       state.hosts
       |> Map.values
@@ -328,7 +329,7 @@ defmodule Cassandra.Session do
           queries = Enum.map(values, &%CQL.BatchQuery{query: prepared, values: &1})
           struct(CQL.Batch, Keyword.put(options, :queries, queries))
       end
-      start_task({from, execute}, preferred_hosts, state)
+      start_task({from, execute, start_time}, preferred_hosts, state)
       {:noreply, state}
     end
   end
@@ -352,10 +353,10 @@ defmodule Cassandra.Session do
     |> Enum.map(&key/1)
   end
 
-  defp start_task({from, request}, hosts, state) do
+  defp start_task({from, request, start_time}, hosts, state) do
     conns = select(request, hosts, state.balancer)
     Task.Supervisor.start_child state.task_supervisor, fn ->
-      Worker.send_request(request, from, conns, state.retry, state.retry_args)
+      Worker.send_request(request, from, conns, state.retry, start_time)
     end
   end
 

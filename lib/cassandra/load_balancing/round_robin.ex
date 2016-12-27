@@ -9,7 +9,7 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
 
   alias Cassandra.Host
 
-  defstruct [num_connections: 2]
+  defstruct [num_connections: 10]
 
   defimpl Cassandra.LoadBalancing.Policy do
     def select(_, hosts, _) do
