@@ -16,7 +16,7 @@ defmodule Cassandra.Session do
     async_init: true,
   ]
 
-  @default_balancer %LoadBalancing.RoundRobin{}
+  @default_balancer_policy LoadBalancing.RoundRobin
 
   ### Client API ###
 
@@ -25,7 +25,8 @@ defmodule Cassandra.Session do
 
   ## Options
 
-    * `:balancer` - Cassandra.LoadBalancing.Policy to use
+    * `:balancer_policy` - Cassandra.LoadBalancing.Policy to use
+    * `:balancer_args` - list of arguments to pass to `:balancer_policy` struct
     * `:port` - Cassandra native protocol port (default: `9042`)
     * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
     * `:timeout` - query execution timeout in milliseconds (default: `:infinity`)
@@ -107,7 +108,9 @@ defmodule Cassandra.Session do
       {:ok, pid} = Task.Supervisor.start_link
       pid
     end
-    balancer = Keyword.get(options, :balancer, @default_balancer)
+    balancer_policy = Keyword.get(options, :balancer_policy, @default_balancer_policy)
+    balancer_args = Keyword.get(options, :balancer_args, [])
+    balancer = struct(balancer_policy, balancer_args)
     retry = Keyword.get(options, :retry, &retry?/3)
     retry_args = Keyword.get(options, :retry, [0])
 
