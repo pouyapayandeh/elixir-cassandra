@@ -53,7 +53,11 @@ defmodule Cassandra.ConnectionTest do
 
   describe "async init" do
     test "max_attempts" do
-      assert {:ok, pid} = Connection.start(port: 9111, connect_timeout: 50, reconnection_args: [max_attempts: 2])
+      assert {:ok, pid} = Connection.start([
+        port: 9111,
+        connect_timeout: 50,
+        reconnection: {Cassandra.Reconnection.Constant, [initial: 10, step: 10, max_attempts: 2]},
+      ])
       ref = Process.monitor(pid)
       assert {:error, :not_connected} = Connection.send(pid, "")
       assert_receive {:DOWN, ^ref, :process, ^pid, {:shutdown, :max_attempts}}, 1000

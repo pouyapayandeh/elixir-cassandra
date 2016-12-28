@@ -42,8 +42,10 @@ defmodule Cassandra.Cluster do
   * `:port` - Cassandra native protocol port (default: `9042`)
   * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
   * `:timeout` - request execution timeout in milliseconds (default: `:infinity`)
-  * `:reconnection_policy` - module which implements Cassandra.Reconnection.Policy (defult: `Exponential`)
-  * `:reconnection_args` - list of arguments to pass to `:reconnection_policy` on init (defult: `[]`)
+  * `:reconnection` - {`policy`, `args`} tuple where
+       module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
+       args is a list of arguments to pass to `policy` on init (defult: `[]`)
+  * `:retry` - {`retry?`, `args`}
 
   For `gen_server_options` values see `GenServer.start_link/3`.
 

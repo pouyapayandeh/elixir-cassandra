@@ -18,8 +18,7 @@ defmodule Cassandra.Connection do
     port: 9042,
     connect_timeout: 5000,
     timeout: :infinity,
-    reconnection_policy: Reconnection.Exponential,
-    reconnection_args: [],
+    reconnection: {Reconnection.Exponential, []},
     session: nil,
     event_manager: nil,
     async_init: true,
@@ -50,8 +49,9 @@ defmodule Cassandra.Connection do
   * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
   * `:timeout` - request execution timeout in milliseconds (default: `:infinity`)
   * `:keyspace` - name of keyspace to bind connection to
-  * `:reconnection_policy` - module which implements Cassandra.Reconnection.Policy (defult: `Exponential`)
-  * `:reconnection_args` - list of arguments to pass to `:reconnection_policy` on init (defult: `[]`)
+  * `:reconnection` - {`policy`, `args`} tuple where
+       module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
+       args is a list of arguments to pass to `policy` on init (defult: `[]`)
   * `:event_manager` - pid of GenServer process for handling events
   * `:session` - pid of Cassandra.Session process to add this connection to
 
@@ -133,7 +133,7 @@ defmodule Cassandra.Connection do
 
     {:ok, reconnection} =
       options
-      |> Keyword.take([:reconnection_policy, :reconnection_args])
+      |> Keyword.get(:reconnection)
       |> Reconnection.start_link
 
     host = case options[:host] do

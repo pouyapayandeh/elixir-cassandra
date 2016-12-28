@@ -39,7 +39,7 @@ defmodule Cassandra.SessionTest do
 
   test "prepare", %{session: session} do
     insert = "INSERT INTO people (id, name, age) VALUES (now(), :name, :age);"
-    assert {:ok, ^insert} = Session.prepare(session, insert)
+    assert %{result: {:ok, ^insert}} = Session.prepare(session, insert)
 
     characters = [
       %{name: "Bilbo", age: 50},

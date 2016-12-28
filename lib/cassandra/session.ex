@@ -16,7 +16,7 @@ defmodule Cassandra.Session do
     async_init: true,
   ]
 
-  @default_balancer_policy LoadBalancing.RoundRobin
+  @default_balancer {LoadBalancing.RoundRobin, []}
 
   ### Client API ###
 
@@ -25,14 +25,17 @@ defmodule Cassandra.Session do
 
   ## Options
 
-    * `:balancer_policy` - Cassandra.LoadBalancing.Policy to use
-    * `:balancer_args` - list of arguments to pass to `:balancer_policy` struct
-    * `:port` - Cassandra native protocol port (default: `9042`)
-    * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
-    * `:timeout` - query execution timeout in milliseconds (default: `:infinity`)
-    * `:keyspace` - name of keyspace to bind session to
-    * `:reconnection_policy` - module which implements Cassandra.Reconnection.Policy (defult: `Exponential`)
-    * `:reconnection_args` - list of arguments to pass to `:reconnection_policy` on init (defult: `[]`)
+  * `:balancer` - {`policy`, `args`} tuple where
+        `policy` is an implementation of Cassandra.LoadBalancing.Policy to use
+        `args` is a list of arguments to pass to `policy` struct
+  * `:reconnection` - {`policy`, `args`} tuple where
+      module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
+      args is a list of arguments to pass to `policy` on init (defult: `[]`)
+  * `:retry` - {`retry?`, `args`}
+  * `:port` - Cassandra native protocol port (default: `9042`)
+  * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
+  * `:timeout` - query execution timeout in milliseconds (default: `:infinity`)
+  * `:keyspace` - name of keyspace to bind session to
 
   Retutns `{:ok, pid}` or `{:error, reason}`.
   """
@@ -108,19 +111,16 @@ defmodule Cassandra.Session do
       {:ok, pid} = Task.Supervisor.start_link
       pid
     end
-    balancer_policy = Keyword.get(options, :balancer_policy, @default_balancer_policy)
-    balancer_args = Keyword.get(options, :balancer_args, [])
+    {balancer_policy, balancer_args} = Keyword.get(options, :balancer, @default_balancer)
     balancer = struct(balancer_policy, balancer_args)
-    retry = Keyword.get(options, :retry, &retry?/3)
-    retry_args = Keyword.get(options, :retry, [0])
+    retry = Keyword.get(options, :retry, {&retry?/3, [0]})
 
     connection_options = Keyword.take(options, [
       :port,
       :connection_timeout,
       :timeout,
       :keyspace,
-      :reconnection_policy,
-      :reconnection_args,
+      :reconnection,
     ])
 
     options =
@@ -136,7 +136,7 @@ defmodule Cassandra.Session do
       cluster: cluster,
       options: options,
       balancer: balancer,
-      retry: {retry, retry_args},
+      retry: retry,
       task_supervisor: task_supervisor,
       hosts: %{},
       requests: [],
@@ -261,23 +261,23 @@ defmodule Cassandra.Session do
   end
 
   @doc false
-  def handle_info({ref, result}, state) do
+  def handle_info({ref, profile}, state) do
     case pop_in(state.refs[ref]) do
       {nil, state} ->
         {:noreply, state}
 
       {{from, statement}, state} ->
-        reply = case result do
-          %{result: {:ok, _}}        -> {:ok, statement}
-          %{result: {:error, error}} -> error
+        reply = case profile do
+          %{result: {:ok, _}}    -> %{profile | result: {:ok, statement}}
+          %{result: {:error, _}} -> profile
         end
         GenServer.reply(from, reply)
         {:noreply, state}
 
       {{from, prepare, batch_list, hash, options}, state} ->
-        case result do
+        case profile do
           %{result: {:ok, _}} ->
-            execute(prepare, batch_list, hash, options, from, state)
+            execute({prepare, batch_list, hash, options}, profile, from, state)
           %{result: {:error, error}} ->
             GenServer.reply(from, error)
             {:noreply, state}
@@ -294,24 +294,24 @@ defmodule Cassandra.Session do
   end
 
   defp handle_send(request, from, %{hosts: hosts} = state) do
-    start_time = :erlang.monotonic_time
+    profile = %{start_time: :erlang.monotonic_time}
     if open_connections_count(hosts) < 1 do
-      {:noreply, %{state | requests: [{from, request, start_time} | state.requests]}}
+      {:noreply, %{state | requests: [{from, request, profile} | state.requests]}}
     else
-      start_task({from, request, start_time}, hosts, state)
+      start_task({from, request, profile}, hosts, state)
       {:noreply, state}
     end
   end
 
   defp prepare_and_execute(statement, batch_list, options, from, state) when is_bitstring(statement) do
     prepare = %CQL.Prepare{query: statement}
-    encoded = CQL.encode(prepare)
+    {encode_time, encoded} = :timer.tc(CQL, :encode, [prepare])
     hash = :crypto.hash(:md5, encoded)
-    execute(prepare, batch_list, hash, options, from, state)
+    execute({prepare, batch_list, hash, options}, %{encode_times: [encode_time]}, from, state)
   end
 
-  defp execute(prepare, batch_list, hash, options, from, state) do
-    start_time = :erlang.monotonic_time
+  defp execute({prepare, batch_list, hash, options}, profile, from, state) do
+    profile = Map.put_new(profile, :start_time, :erlang.monotonic_time)
     preferred_hosts =
       state.hosts
       |> Map.values
@@ -329,7 +329,7 @@ defmodule Cassandra.Session do
           queries = Enum.map(values, &%CQL.BatchQuery{query: prepared, values: &1})
           struct(CQL.Batch, Keyword.put(options, :queries, queries))
       end
-      start_task({from, execute, start_time}, preferred_hosts, state)
+      start_task({from, execute, profile}, preferred_hosts, state)
       {:noreply, state}
     end
   end
@@ -353,10 +353,10 @@ defmodule Cassandra.Session do
     |> Enum.map(&key/1)
   end
 
-  defp start_task({from, request, start_time}, hosts, state) do
+  defp start_task({from, request, profile}, hosts, state) do
     conns = select(request, hosts, state.balancer)
     Task.Supervisor.start_child state.task_supervisor, fn ->
-      Worker.send_request(request, from, conns, state.retry, start_time)
+      Worker.send_request(request, from, conns, state.retry, profile)
     end
   end
 
