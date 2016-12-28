@@ -223,7 +223,6 @@ defmodule Cassandra.Session do
 
           Map.merge(hosts, updated_hosts)
         else
-          Logger.debug("#{__MODULE__} already connected to #{inspect id}")
           hosts
         end
 

@@ -300,7 +300,6 @@ defmodule Cassandra.Connection do
   end
 
   defp handle_event(%Frame{body: %Event{} = event}, %{event_manager: pid} = state) do
-    Logger.debug("#{__MODULE__} got event #{inspect event}")
     GenServer.cast(pid, {:notify, event})
     {:ok, state}
   end
