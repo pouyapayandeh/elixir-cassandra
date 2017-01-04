@@ -39,8 +39,12 @@ defmodule Cassandra.Session do
 
   Retutns `{:ok, pid}` or `{:error, reason}`.
   """
-  def start_link(cluster, options \\ [], gen_server_options \\ []) do
-    GenServer.start_link(__MODULE__, [cluster, options], gen_server_options)
+  def start_link([cluster, options]) do
+    GenServer.start_link(__MODULE__, [cluster, options])
+  end
+
+  def start_link(cluster, options) do
+    start_link([cluster, options])
   end
 
   @doc false
@@ -160,7 +164,8 @@ defmodule Cassandra.Session do
 
   @doc false
   def handle_call({:execute, {statement, list}, options}, from, state)
-  when is_bitstring(statement) and is_list(list) do
+  when is_bitstring(statement) and is_list(list)
+  do
     prepare_and_execute(statement, list, options, from, state)
   end
 
