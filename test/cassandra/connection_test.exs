@@ -214,7 +214,7 @@ defmodule Cassandra.ConnectionTest do
     end
 
     test "CQL Events" do
-      assert {:ok, conn} = Connection.start_link(host: @host, async_init: false, keyspace: @keyspace, event_manager: self)
+      assert {:ok, conn} = Connection.start_link(host: @host, async_init: false, keyspace: @keyspace, event_manager: self())
       assert {:ok, :ready} = Connection.send(conn, %CQL.Register{})
 
       create = query """

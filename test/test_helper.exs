@@ -1,4 +1,3 @@
-ExUnit.start
 ExCheck.start
 
 alias Cassandra.Connection
@@ -32,16 +31,16 @@ defmodule Cassandra.TestHelper do
   end
 
   def setup do
-    {:ok, c} = Connection.start_link(host: host, async_init: false)
-    {:ok, _} = Connection.send(c, drop_keyspace)
-    {:ok, _} = Connection.send(c, create_keyspace)
+    {:ok, c} = Connection.start_link(host: host(), async_init: false)
+    {:ok, _} = Connection.send(c, drop_keyspace())
+    {:ok, _} = Connection.send(c, create_keyspace())
 
     Connection.stop(c)
   end
 
   def teardown do
-    {:ok, c} = Connection.start_link(host: host, async_init: false)
-    {:ok, _} = Connection.send(c, drop_keyspace)
+    {:ok, c} = Connection.start_link(host: host(), async_init: false)
+    {:ok, _} = Connection.send(c, drop_keyspace())
 
     Connection.stop(c)
   end
@@ -53,3 +52,4 @@ end
 
 Cassandra.TestHelper.setup
 
+ExUnit.start

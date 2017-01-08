@@ -77,7 +77,7 @@ defmodule Cassandra.Cluster do
     options =
       options
       |> Keyword.take([:port, :connection_timeout, :timeout, :reconnection_policy, :reconnection_args])
-      |> Keyword.put(:event_manager, self)
+      |> Keyword.put(:event_manager, self())
 
     with {:ok, conn, local} <- setup(contact_points, options),
          {:ok, peers} <- Cassandra.Connection.send(conn, @select_peers),

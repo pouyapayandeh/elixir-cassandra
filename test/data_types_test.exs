@@ -5,19 +5,19 @@ defmodule CQL.DataTypesTest do
   import CQL.DataTypes
 
   property "ascii" do
-    for_all bin in binary do
+    for_all bin in binary() do
       bin == bin |> encode(:ascii) |> drop_size |> decode(:ascii)
     end
   end
 
   property "bigint" do
-    for_all n in int do
+    for_all n in int() do
       n == n |> encode(:bigint) |> has_size(8) |> decode(:bigint)
     end
   end
 
   property "blob" do
-    for_all bin in binary do
+    for_all bin in binary() do
       bin == bin |> encode(:blob) |> drop_size |> decode(:blob)
     end
   end
@@ -38,13 +38,13 @@ defmodule CQL.DataTypesTest do
   end
 
   property "boolean" do
-    for_all b in bool do
+    for_all b in bool() do
       b == b |> encode(:boolean) |> has_size(1) |> decode(:boolean)
     end
   end
 
   property "counter" do
-    for_all n in int do
+    for_all n in int() do
       n == n |> encode(:counter) |> has_size(8) |> decode(:counter)
     end
   end
@@ -82,7 +82,7 @@ defmodule CQL.DataTypesTest do
   end
 
   property "decimal" do
-    for_all x in {pos_integer, int} do
+    for_all x in {pos_integer(), int()} do
       x == x |> encode(:decimal) |> drop_size |> decode(:decimal)
     end
   end
@@ -120,7 +120,7 @@ defmodule CQL.DataTypesTest do
   end
 
   property "int" do
-    for_all n in int do
+    for_all n in int() do
       n == n |> encode(:int) |> has_size(4) |> decode(:int)
     end
   end

@@ -4,7 +4,7 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
 
   ## Acceptable args
 
-  * `:num_connections` - number of connections to open for each host (default: `2`)
+  * `:num_connections` - number of connections to open for each host (default: `10`)
   """
 
   alias Cassandra.Host

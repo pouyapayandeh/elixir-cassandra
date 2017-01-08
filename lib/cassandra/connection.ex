@@ -108,7 +108,7 @@ defmodule Cassandra.Connection do
   See `send/3` for `result` types.
   """
   def send_async(connection, request) do
-    send_async(connection, request, {self, make_ref})
+    send_async(connection, request, {self(), make_ref()})
   end
 
   @doc false
@@ -514,7 +514,7 @@ defmodule Cassandra.Connection do
   defp notify(%{session: nil}, _), do: :ok
   defp notify(%{host_id: nil}, _), do: :ok
   defp notify(%{session: session, host_id: id}, message) do
-    Session.notify(session, {message, {id, self}})
+    Session.notify(session, {message, {id, self()}})
   end
 
   defp next_stream_id(32_000), do: 2

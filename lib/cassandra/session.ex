@@ -127,6 +127,8 @@ defmodule Cassandra.Session do
       :reconnection,
     ])
 
+    self = self()
+
     options =
       @defaults
       |> Keyword.merge(connection_options)
@@ -292,9 +294,9 @@ defmodule Cassandra.Session do
   ### Helpers ###
 
   defp send_through_self(request, data, state) do
-    ref = make_ref
+    ref = make_ref()
     next_state = put_in(state.refs[ref], data)
-    handle_send(request, {self, ref}, next_state)
+    handle_send(request, {self(), ref}, next_state)
   end
 
   defp handle_send(request, from, %{hosts: hosts} = state) do
