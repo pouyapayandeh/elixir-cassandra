@@ -8,6 +8,7 @@ defmodule Cassandra.Mixfile do
     elixir: "~> 1.3",
     build_embedded: Mix.env == :prod,
     start_permanent: Mix.env == :prod,
+    compilers: [:elixir_make | Mix.compilers],
     test_coverage: [tool: ExCoveralls],
     preferred_cli_env: [
       "coveralls": :test,
@@ -30,6 +31,7 @@ defmodule Cassandra.Mixfile do
     {:connection, "~> 1.0"},
     {:uuid, "~> 1.1"},
     {:poolboy, "~> 1.5"},
+    {:elixir_make, "~> 0.4", runtime: false},
     {:excheck, "~> 0.5", only: :test},
     {:triq, github: "triqng/triq", only: :test},
     {:excoveralls, "~> 0.5", only: :test},
@@ -50,6 +52,6 @@ defmodule Cassandra.Mixfile do
       "Github" => "https://github.com/cafebazaar/elixir-cassandra",
       "Docs" => "https://hexdocs.pm/cassandra/#{version()}/",
     },
-    files: ~w(mix.exs lib README.md LICENSE.md),
+    files: ~w(mix.exs lib native README.md LICENSE.md),
   ]
 end
