@@ -4,18 +4,21 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
 
   ## Acceptable args
 
-  * `:num_connections` - number of connections to open for each host (default: `10`)
+  * `:num_connections` - number of connections to open for each host (default: `1`)
+  * `:max_tries` - number of connections to try before on request fail (default: `3`)
   """
 
-  alias Cassandra.Host
-
-  defstruct [num_connections: 10]
+  defstruct [num_connections: 1, max_tries: 3]
 
   defimpl Cassandra.LoadBalancing.Policy do
-    def select(_, hosts, _) do
-      hosts
-      |> Enum.flat_map(&Host.open_connections(&1))
-      |> Enum.shuffle
+    def plan(balancer, statement, _schema, connection_manager) do
+      connections =
+        connection_manager
+        |> Cassandra.Session.ConnectionManager.connections
+        |> Enum.shuffle
+        |> Cassandra.LoadBalancing.take(balancer.max_tries)
+
+      %{statement | connections: connections}
     end
 
     def count(balancer, _) do

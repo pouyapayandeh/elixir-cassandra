@@ -4,7 +4,7 @@ defmodule Cassandra.ConnectionTest do
   alias Cassandra.Connection
 
   defp query(str, options \\ []) do
-    CQL.encode(%CQL.Query{query: str, params: struct(CQL.QueryParams, options)})
+    CQL.encode!(%CQL.Query{query: str, params: struct(CQL.QueryParams, options)})
   end
 
   @moduletag capture_log: true
@@ -76,7 +76,7 @@ defmodule Cassandra.ConnectionTest do
     end
 
     test ":ready", %{conn: conn} do
-      request = CQL.encode(%CQL.Register{})
+      assert {:ok, request} = CQL.encode(%CQL.Register{})
       assert {:ok, :ready} = Connection.send(conn, request)
     end
 
@@ -99,7 +99,7 @@ defmodule Cassandra.ConnectionTest do
     end
 
     test "Supported", %{conn: conn} do
-      request = CQL.encode(%CQL.Options{})
+      assert {:ok, request} = CQL.encode(%CQL.Options{})
       assert {:ok, %CQL.Supported{}} = Connection.send(conn, request)
     end
 
@@ -107,7 +107,7 @@ defmodule Cassandra.ConnectionTest do
       prepare = %CQL.Prepare{query: "SELECT * FROM #{@table_name};"}
       assert {:ok, %CQL.Result.Prepared{}} = Connection.send(conn, prepare)
 
-      request = CQL.encode(prepare)
+      assert {:ok, request} = CQL.encode(prepare)
       assert {:ok, %CQL.Result.Prepared{}} = Connection.send(conn, request)
     end
 

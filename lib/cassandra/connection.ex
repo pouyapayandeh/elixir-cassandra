@@ -3,15 +3,15 @@ defmodule Cassandra.Connection do
   A Connection is a process to handle single connection to a one Cassandra host
   to send requests and parse responses.
   """
-
   use Connection
 
+  import Kernel, except: [send: 2]
   require Logger
 
   alias :gen_tcp, as: TCP
-  alias CQL.{Frame, Startup, Ready, Event, Error}
+  alias CQL.{Frame, Ready, Event, Error}
   alias CQL.Result.{Rows, Void, Prepared, SetKeyspace}
-  alias Cassandra.{Session, Reconnection, Host}
+  alias Cassandra.{Reconnection, Host}
 
   @default_options [
     host: "127.0.0.1",
@@ -19,13 +19,14 @@ defmodule Cassandra.Connection do
     connect_timeout: 5000,
     timeout: :infinity,
     reconnection: {Reconnection.Exponential, []},
-    session: nil,
+    manager: nil,
     event_manager: nil,
     async_init: true,
     keyspace: nil,
   ]
 
   @call_timeout 5000
+  @startup CQL.encode!(%CQL.Startup{})
 
   # Client API
 
@@ -52,8 +53,8 @@ defmodule Cassandra.Connection do
   * `:reconnection` - {`policy`, `args`} tuple where
        module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
        args is a list of arguments to pass to `policy` on init (defult: `[]`)
-  * `:event_manager` - pid of GenServer process for handling events
-  * `:session` - pid of Cassandra.Session process to add this connection to
+  * `:event_manager` - pid of process for handling events
+  * `:manager` - pid of Cassandra.ConnectionManager
 
   For `gen_server_options` values see `GenServer.start_link/3`.
 
@@ -117,6 +118,11 @@ defmodule Cassandra.Connection do
     ref
   end
 
+  @doc false
+  def manage_events(connection) do
+    Connection.call(connection, :manage_events)
+  end
+
   @doc """
   Stops the connection server with the given `reason`.
   """
@@ -130,7 +136,6 @@ defmodule Cassandra.Connection do
   def init(options) do
     options = Keyword.merge(@default_options, options)
 
-
     {:ok, reconnection} =
       options
       |> Keyword.get(:reconnection)
@@ -142,17 +147,11 @@ defmodule Cassandra.Connection do
       inet -> inet
     end
 
-    host_id = case options[:host] do
-      %Host{id: id} -> id
-      _ -> nil
-    end
-
     state =
       options
-      |> Keyword.take([:port, :connect_timeout, :timeout, :session, :event_manager, :keyspace])
+      |> Keyword.take([:port, :connect_timeout, :timeout, :manager, :event_manager, :keyspace])
       |> Enum.into(%{
         host: host,
-        host_id: host_id,
         streams: %{},
         last_stream_id: 1,
         socket: nil,
@@ -238,6 +237,11 @@ defmodule Cassandra.Connection do
   end
 
   @doc false
+  def handle_call(:manage_events, {pid, _ref}, state) do
+    {:reply, :ok, %{state | event_manager: pid}}
+  end
+
+  @doc false
   def handle_call({:send_request, _}, _, %{socket: nil} = state) do
     {:reply, {:error, :not_connected}, state}
   end
@@ -300,7 +304,7 @@ defmodule Cassandra.Connection do
   end
 
   defp handle_event(%Frame{body: %Event{} = event}, %{event_manager: pid} = state) do
-    GenServer.cast(pid, {:notify, event})
+    Kernel.send pid, {:event, event}
     {:ok, state}
   end
 
@@ -366,7 +370,7 @@ defmodule Cassandra.Connection do
         {:ok, :done}
 
       %Prepared{} = prepared ->
-        notify(state, {:prepared, hash(request), prepared})
+        notify(state, {:prepared, request, prepared})
         {:ok, prepared}
 
       response ->
@@ -474,17 +478,15 @@ defmodule Cassandra.Connection do
   end
 
   defp send_to(socket, request, id) do
-    case CQL.encode(request, id) do
-      :error ->
-        {:error, :invalid}
-      request_with_id ->
-        send_to(socket, request_with_id)
+    with {:ok, request_with_id} <- CQL.encode(request, id) do
+      send_to(socket, request_with_id)
     end
   end
 
   defp set_keyspace(_socket, nil, _timeout), do: :ok
   defp set_keyspace(socket, keyspace, timeout) do
-    with :ok <- send_to(socket, CQL.encode(%CQL.Query{query: "USE #{keyspace}"})),
+    with {:ok, request} <- CQL.encode(%CQL.Query{query: "USE #{keyspace}"}),
+         :ok <- send_to(socket, request),
          {:ok, buffer} <- TCP.recv(socket, 0, timeout),
          {%Frame{body: %SetKeyspace{name: ^keyspace}}, ""} <- CQL.decode(buffer)
     do
@@ -498,7 +500,7 @@ defmodule Cassandra.Connection do
   end
 
   defp handshake(socket, timeout) do
-    with :ok <- send_to(socket, CQL.encode(%Startup{})),
+    with :ok <- send_to(socket, @startup),
          {:ok, buffer} <- TCP.recv(socket, 0, timeout),
          {%Frame{body: %Ready{}}, ""} <- CQL.decode(buffer)
     do
@@ -511,20 +513,11 @@ defmodule Cassandra.Connection do
     end
   end
 
-  defp notify(%{session: nil}, _), do: :ok
-  defp notify(%{host_id: nil}, _), do: :ok
-  defp notify(%{session: session, host_id: id}, message) do
-    Session.notify(session, {message, {id, self()}})
+  defp notify(%{manager: nil}, _), do: :ok
+  defp notify(%{manager: manager, host: host}, message) do
+    Kernel.send manager, {:notify, message, host, self()}
   end
 
   defp next_stream_id(32_000), do: 2
   defp next_stream_id(n), do: n + 1
-
-  defp hash(request) when is_bitstring(request) do
-    :crypto.hash(:md5, request)
-  end
-
-  defp hash(request) do
-    request |> CQL.encode |> hash
-  end
 end

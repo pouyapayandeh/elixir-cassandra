@@ -3,15 +3,10 @@ defprotocol Cassandra.LoadBalancing.Policy do
   Protocol to specify a load balancing policy
   """
 
-  @doc """
-  Selects from a list of `connections` for the `request`
-
-  Returns a sorted list of `connections` to use for executing the `request`
-  """
-  def select(balancer, connections, request)
+  def plan(balancer, statement, schema, connections)
 
   @doc """
-  Returns number of connections to open to the `host`
+  Returns number of connections to open to the `host` where host is a `{ip, data_center, rack}` tuple
   """
   def count(balancer, host)
 end

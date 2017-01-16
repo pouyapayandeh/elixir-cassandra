@@ -16,6 +16,16 @@ defmodule CQL.QueryParams do
     timestamp: nil,
   ]
 
+  @valid_keys [
+    :consistency,
+    :values,
+    :skip_metadata,
+    :page_size,
+    :paging_state,
+    :serial_consistency,
+    :timestamp,
+  ]
+
   @flags %{
     :values                  => 0x01,
     :skip_metadata           => 0x02,
@@ -25,6 +35,22 @@ defmodule CQL.QueryParams do
     :with_default_timestamp  => 0x20,
     :with_names              => 0x40,
   }
+
+  def new(options) when is_list(options) do
+    if Keyword.keyword?(options) do
+      struct(__MODULE__, Keyword.take(options, @valid_keys))
+    else
+      struct(__MODULE__)
+    end
+  end
+
+  def new(options) when is_map(options) do
+    struct(__MODULE__, Map.take(options, @valid_keys))
+  end
+
+  def new(_) do
+    struct(__MODULE__)
+  end
 
   def encode(q = %__MODULE__{values: values}) when is_nil(values) do
     encode(q, false, false, nil)

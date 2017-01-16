@@ -10,41 +10,44 @@ defmodule Cassandra.Cluster do
 
   require Logger
 
-  alias Cassandra.Host
-  alias Cassandra.Cluster.Registery
+  alias Cassandra.Cluster.Schema
 
-  @select_peers CQL.encode(%CQL.Query{query: "SELECT * FROM system.peers;"})
-  @select_local CQL.encode(%CQL.Query{query: "SELECT * FROM system.local;"})
-  @register_events CQL.encode(%CQL.Register{})
+  @select_local CQL.encode!(%CQL.Query{query: "SELECT * FROM system.local;"})
+
+  @valid_options [
+    :contact_points,
+    :port,
+    :connection_timeout,
+    :timeout,
+    :reconnection,
+    :retry,
+  ]
 
   ### Client API ###
 
   @doc """
   Starts a Cluster process without links (outside of a supervision tree).
 
-  See start_link/3 for more information.
+  See start_link/1 for more information.
   """
-  def start(contact_points \\ ["127.0.0.1"], options \\ [], gen_server_options \\ []) do
-    GenServer.start(__MODULE__, [contact_points, options], gen_server_options)
+  def start(options \\ []) do
+    GenServer.start(__MODULE__, options)
   end
 
   @doc """
   Starts a Cluster process linked to the current process.
 
-  `contact_points` is the initial list of addresses.  Note that the entire list
-  of cluster members will be discovered automatically once a connection to any
-  hosts from the original list is successful.
+  `options` is the keyword list of options:
 
-  ## Options
-
-  These are options which will be used to connect to `contact_points`.
-
+  * `:contact_points` - The initial list host of addresses.  Note that the entire list
+      of cluster members will be discovered automatically once a connection to any
+      hosts from the original list is successful. (default: `["127.0.0.1"]`)
   * `:port` - Cassandra native protocol port (default: `9042`)
   * `:connection_timeout` - connection timeout in milliseconds (defult: `5000`)
   * `:timeout` - request execution timeout in milliseconds (default: `:infinity`)
   * `:reconnection` - {`policy`, `args`} tuple where
-       module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
-       args is a list of arguments to pass to `policy` on init (defult: `[]`)
+      module is an implementation of Cassandra.Reconnection.Policy (defult: `Exponential`)
+      args is a list of arguments to pass to `policy` on init (defult: `[]`)
   * `:retry` - {`retry?`, `args`}
 
   For `gen_server_options` values see `GenServer.start_link/3`.
@@ -54,56 +57,33 @@ defmodule Cassandra.Cluster do
   It returns `{:ok, pid}` when connection to one of `contact_points` established and metadata fetched,
   on any error it returns `{:error, reason}`.
   """
-  def start_link(contact_points \\ ["127.0.0.1"], options \\ [], gen_server_options \\ []) do
-    GenServer.start(__MODULE__, [contact_points, options], gen_server_options)
+  def start_link(options \\ []) do
+    GenServer.start(__MODULE__, options)
   end
 
-  @doc """
-  Returns the all known hosts of a cluster as map with IPs as key and Cassandra.Host structs as values
-  """
-  def hosts(cluster, timeout \\ 5000) do
-    GenServer.call(cluster, :hosts, timeout)
+  def start_session(cluster, options) do
+    GenServer.call(cluster, {:start_session, options})
   end
 
-  @doc false
-  def register(cluster, session) do
-    GenServer.cast(cluster, {:register, session})
-  end
+  # def start_session_link(cluster, options) do
+  #   with {:ok, session} <- GenServer.call(cluster, {:start_session, options}) do
+  #     Process.link(session)
+  #     {:ok, session}
+  #   end
+  # end
 
   ### GenServer Callbacks ###
 
   @doc false
-  def init([contact_points, options]) do
-    options =
-      options
-      |> Keyword.take([:port, :connection_timeout, :timeout, :reconnection_policy, :reconnection_args])
-      |> Keyword.put(:event_manager, self())
+  def init(options) do
+    options = Keyword.take(options, @valid_options)
 
-    with {:ok, conn, local} <- setup(contact_points, options),
-         {:ok, peers} <- Cassandra.Connection.send(conn, @select_peers),
-         {:ok, :ready} <- Cassandra.Connection.send(conn, @register_events)
+    with {:ok, connection, local_data} <- setup(options),
+         {:ok, schema} <- Schema.start(local_data, connection)
     do
-      peer_hosts =
-        peers
-        |> CQL.Result.Rows.to_keyword
-        |> Enum.map(&Host.new/1)
-        |> Enum.reject(&is_nil/1)
-
-      local_host =
-        local
-        |> Host.new
-        |> Host.toggle(:up)
-
-      hosts =
-        [local_host | peer_hosts]
-        |> Enum.map(fn h -> {h.ip, h} end)
-        |> Enum.into(%{})
-
       {:ok, %{
         options: options,
-        name: local["cluster_name"],
-        control_connection: conn,
-        hosts: hosts,
+        schema: schema,
         sessions: [],
       }}
     else
@@ -111,60 +91,19 @@ defmodule Cassandra.Cluster do
     end
   end
 
-  @doc false
-  def handle_cast({:notify, event}, %{hosts: hosts, sessions: sessions} = state) do
-    hosts = case event_type(event) do
-      {:host_found, address} ->
-        address
-        |> select_peer(state.control_connection)
-        |> Registery.host_found(address, hosts, sessions)
-
-      {:host_lost, address} ->
-        Registery.host_lost(address, hosts)
-
-      {:host_up, address} ->
-        Registery.host_up(address, hosts, sessions)
-
-      {:host_down, address} ->
-        Registery.host_down(address, hosts, sessions)
-
-      :not_related ->
-        hosts
-    end
-
-    {:noreply, %{state | hosts: hosts}}
-  end
-
-  @doc false
-  def handle_cast({:register, session}, %{sessions: sessions} = state) do
-    {:noreply, %{state | sessions: [session | sessions]}}
-  end
-
-  @doc false
-  def handle_call(:hosts, _from, state) do
-    {:reply, state.hosts, state}
-  end
-
-  @doc false
-  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
-    Logger.warn("#{__MODULE__} control connection lost")
-    contact_points = Map.keys(state.hosts)
-
-    with {:ok, conn, _local} <- setup(contact_points, state.options),
-         {:ok, :ready} <- Cassandra.Connection.send(conn, @register_events)
-    do
-      Logger.warn("#{__MODULE__} new control connection opened")
-      {:noreply, %{state | control_connection: conn}}
+  def handle_call({:start_session, options}, _from, %{sessions: sessions} = state) do
+    pool_name = Keyword.get(options, :pool_name, Cassandra.Session.Executors)
+    with {:ok, session} <- Cassandra.Session.Supervisor.start_link(state.schema, pool_name, options) do
+      {:reply, {:ok, pool_name}, %{state | sessions: [session | sessions]}}
     else
-      {:error, reason} ->
-        Logger.error("#{__MODULE__} control connection not found")
-        {:stop, reason, state}
+      error -> {:reply, error, state}
     end
   end
 
   ### Helpers ###
 
-  defp setup(contact_points, options) do
+  defp setup(options) do
+    contact_points = Keyword.get(options, :contact_points, ["127.0.0.1"])
     connection_options = Keyword.merge(options, [async_init: false])
 
     contact_points
@@ -173,10 +112,10 @@ defmodule Cassandra.Cluster do
     |> Stream.map(&select_local/1)
     |> Stream.reject(&error?/1)
     |> Stream.filter(&bootstrapped?/1)
+    |> Stream.filter(&named?(&1, options[:cluster_name]))
     |> Enum.take(1)
     |> case do
       [{conn, local}] ->
-        Process.monitor(conn)
         {:ok, conn, local}
       [] ->
         {:error, :no_avaliable_contact_points}
@@ -205,6 +144,11 @@ defmodule Cassandra.Cluster do
     Map.get(local, "bootstrapped") == "COMPLETED"
   end
 
+  def named?(_, nil), do: true
+  def named?({_conn, local}, name) do
+    Map.get(local, "cluster_name") == name
+  end
+
   defp select_local(conn) do
     with {:ok, rows} <- Cassandra.Connection.send(conn, @select_local),
          [local] <- CQL.Result.Rows.to_map(rows)
@@ -213,49 +157,5 @@ defmodule Cassandra.Cluster do
     else
       _ -> :error
     end
-  end
-
-  defp select_peer({address, _}, conn) do
-    case Cassandra.Connection.send(conn, peer_query(address)) do
-      {:ok, [peer]} -> peer
-      _             -> %{}
-    end
-  end
-
-  defp peer_query(ip) do
-    CQL.encode(%CQL.Query{query: "SELECT * FROM system.peers WHERE peer='#{ip_to_string(ip)}';"})
-  end
-
-  defp ip_to_string({_, _, _, _} = ip) do
-    ip
-    |> Tuple.to_list
-    |> Enum.join(".")
-  end
-
-  defp ip_to_string({_, _, _, _, _, _} = ip) do
-    ip
-    |> Tuple.to_list
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.join(":")
-  end
-
-  defp event_type(%CQL.Event{type: "TOPOLOGY_CHANGE", info: %{change: "NEW_NODE", address: address}}) do
-    {:host_found, address}
-  end
-
-  defp event_type(%CQL.Event{type: "TOPOLOGY_CHANGE", info: %{change: "REMOVED_NODE", address: address}}) do
-    {:host_lost, address}
-  end
-
-  defp event_type(%CQL.Event{type: "STATUS_CHANGE", info: %{change: "UP", address: address}}) do
-    {:host_up, address}
-  end
-
-  defp event_type(%CQL.Event{type: "STATUS_CHANGE", info: %{change: "DOWN", address: address}}) do
-    {:host_down, address}
-  end
-
-  defp event_type(_) do
-    :not_related
   end
 end

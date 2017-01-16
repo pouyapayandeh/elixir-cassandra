@@ -24,9 +24,20 @@ defmodule CQL do
   def encode(request, stream \\ 0) do
     case CQL.Request.encode(request) do
       {opration, body} ->
-        CQL.Frame.encode(%CQL.Frame{opration: opration, body: body, stream: stream})
+        frame = %CQL.Frame{opration: opration, body: body, stream: stream}
+        cql = CQL.Frame.encode(frame)
+        {:ok, cql}
       :error ->
-        :error
+        {:error, :invalid_request}
+    end
+  end
+
+  def encode!(request, stream \\ 0) do
+    case encode(request, stream) do
+      {:ok, cql} ->
+        cql
+      {:error, :invalid_request} ->
+        raise ArgumentError.exception("invalid request")
     end
   end
 
