@@ -1,4 +1,4 @@
-defmodule Cassandra.Session.Supervisor do
+defmodule Cassandra.Session do
   use Supervisor
 
   @default_balancer {Cassandra.LoadBalancing.TokenAware, []}
@@ -7,10 +7,8 @@ defmodule Cassandra.Session.Supervisor do
     Supervisor.start_link(__MODULE__, [schema, pool_name, options])
   end
 
-  def execute(pool, statement) do
-    :poolboy.transaction pool, fn executor ->
-      Cassandra.Session.Executor.execute(executor, statement)
-    end
+  def execute(executor, statement) do
+    Cassandra.Session.Executor.execute(executor, statement)
   end
 
   def init([schema, pool_name, options]) do
@@ -31,8 +29,7 @@ defmodule Cassandra.Session.Supervisor do
     children = [
       supervisor(Task.Supervisor, [[name: task_supervisor]]),
       worker(Cassandra.Session.ConnectionManager, [schema, balancer, task_supervisor, connection_manager, options]),
-      worker(Cassandra.Session.Executor, [schema, balancer, task_supervisor, connection_manager, options]),
-      # :poolboy.child_spec(Cassandra.Session.Executor, pool_options, [schema, Cassandra.Session.ConnectionManager, balancer, options]),
+      :poolboy.child_spec(Cassandra.Session.Executor, pool_options, [schema, balancer, task_supervisor, connection_manager, options]),
     ]
 
     supervise(children, strategy: :one_for_one)

@@ -7,12 +7,15 @@ defmodule Cassandra.Cluster.Schema do
   alias Cassandra.Cluster.Schema
 
   @register_events CQL.encode!(%CQL.Register{})
-  @default_fetcher Schema.Fetcher.V3_0_x
 
   ### API ###
 
-  def start(data, connection, fetcher \\ @default_fetcher) do
-    GenServer.start(__MODULE__, [data, connection, fetcher])
+  def start(data, connection, fetcher, options) do
+    GenServer.start(__MODULE__, [data, connection, fetcher], options)
+  end
+
+  def start_link(data, connection, fetcher, options) do
+    GenServer.start_link(__MODULE__, [data, connection, fetcher], options)
   end
 
   def register(schema, pid) do
@@ -34,22 +37,22 @@ defmodule Cassandra.Cluster.Schema do
   ### GenServer Callbacks ###
 
   def init([data, connection, fetcher]) do
-    schema = Schema.Fetcher.fetch(data, connection, fetcher)
+    with {:ok, schema} <- Schema.Fetcher.fetch(data, connection, fetcher),
+         :ok <- register_events(connection)
+    do
+      host_tokens = Enum.map(schema.hosts, fn {ip, host} -> {ip, host.tokens} end)
+      token_hosts = token_hosts(host_tokens)
+      token_ring  = token_ring(host_tokens)
+      keyspaces   = put_replications(schema.keyspaces, token_ring, token_hosts)
 
-    host_tokens = Enum.map(schema.hosts, fn {ip, host} -> {ip, host.tokens} end)
-    token_hosts = token_hosts(host_tokens)
-    token_ring  = token_ring(host_tokens)
-    keyspaces   = put_replications(schema.keyspaces, token_ring, token_hosts)
+      state = Map.merge(schema, %{
+        token_ring: token_ring,
+        keyspaces: keyspaces,
+        connection: connection,
+        listeners: [],
+        fetcher: fetcher,
+      })
 
-    state = Map.merge(schema, %{
-      token_ring: token_ring,
-      keyspaces: keyspaces,
-      connection: connection,
-      listeners: [],
-      fetcher: fetcher,
-    })
-
-    with :ok <- register_events(connection) do
       {:ok, state}
     else
       {:error, reason} -> {:stop, reason, %{}}
@@ -146,12 +149,19 @@ defmodule Cassandra.Cluster.Schema do
   defp handle_event({:host, :found, {ip, _}}, state) do
     Logger.info("#{__MODULE__} new host found: #{inspect ip}")
 
-    host =
-      ip
-      |> Schema.Fetcher.fetch_peer(state.connection, state.fetcher)
-      |> Host.new(:up, state.data_center, &state.partitioner.parse_token/1)
+    args = [
+      ip,
+      state.data_center,
+      &state.partitioner.parse_token/1,
+      state.connection,
+      state.fetcher,
+    ]
 
-    state = put_in(state, [:hosts, ip], host)
+    state =
+      case apply(Schema.Fetcher, :fetch_peer, args) do
+        {:ok, host} -> put_in(state, [:hosts, ip], host)
+        _           -> state
+      end
 
     {:noreply, state}
   end
@@ -175,13 +185,12 @@ defmodule Cassandra.Cluster.Schema do
   end
 
   defp handle_event({:keyspace, _, name}, state) do
-    case Schema.Fetcher.fetch_keyspace(name, state.connection, state.fetcher) do
-      nil ->
-        {:noreply, state}
-      keyspace ->
-        state = put_in(state, [:keyspaces, name], keyspace)
-        {:noreply, state}
-    end
+    state =
+      case Schema.Fetcher.fetch_keyspace(name, state.connection, state.fetcher) do
+        {:ok, keyspace} -> put_in(state, [:keyspaces, name], keyspace)
+        _               -> state
+      end
+    {:noreply, state}
   end
 
   defp handle_event(event, state) do

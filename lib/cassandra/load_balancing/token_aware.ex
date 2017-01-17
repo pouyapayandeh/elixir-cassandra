@@ -23,20 +23,28 @@ defmodule Cassandra.LoadBalancing.TokenAware do
   end
 
   defimpl Cassandra.LoadBalancing.Policy do
-    def plan(balancer, %Cassandra.Statement{keyspace: keyspace, partition_key: partition_key} = statement, schema, connection_manager)
+    alias Cassandra.{Statement, LoadBalancing}
+    alias Cassandra.Cluster.Schema
+    alias Cassandra.Session.ConnectionManager
+
+    def plan(balancer, %Statement{keyspace: keyspace, partition_key: partition_key} = statement, schema, connection_manager)
     when not is_nil(keyspace) and not is_nil(partition_key)
     do
-      replicas = Cassandra.Cluster.Schema.find_replicas(schema, keyspace, partition_key)
-      connections =
-        connection_manager
-        |> Cassandra.Session.ConnectionManager.connections(replicas)
-        |> Cassandra.LoadBalancing.take(balancer.max_tries)
+      case Schema.find_replicas(schema, keyspace, partition_key) do
+        [] ->
+          {:error, :keyspace_not_found}
+        replicas ->
+          connections =
+            connection_manager
+            |> ConnectionManager.connections(replicas)
+            |> LoadBalancing.take(balancer.max_tries)
 
-      %{statement | connections: connections}
+          {:ok, %{statement | connections: connections}}
+      end
     end
 
     def plan(balancer, statement, schema, connection_manager) do
-      Cassandra.LoadBalancing.Policy.plan(balancer.fallback, statement, schema, connection_manager)
+      LoadBalancing.Policy.plan(balancer.fallback, statement, schema, connection_manager)
     end
 
     def count(balancer, _) do

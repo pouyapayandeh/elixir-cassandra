@@ -10,10 +10,10 @@ defmodule Cassandra.Cluster do
 
   require Logger
 
+  alias Cassandra.Connection
   alias Cassandra.Cluster.Schema
 
-  @select_local CQL.encode!(%CQL.Query{query: "SELECT * FROM system.local;"})
-
+  @default_fetcher Schema.Fetcher.V3_0_x
   @valid_options [
     :contact_points,
     :port,
@@ -31,7 +31,8 @@ defmodule Cassandra.Cluster do
   See start_link/1 for more information.
   """
   def start(options \\ []) do
-    GenServer.start(__MODULE__, options)
+    server_options = Keyword.take(options, [:name])
+    GenServer.start(__MODULE__, options, server_options)
   end
 
   @doc """
@@ -50,15 +51,14 @@ defmodule Cassandra.Cluster do
       args is a list of arguments to pass to `policy` on init (defult: `[]`)
   * `:retry` - {`retry?`, `args`}
 
-  For `gen_server_options` values see `GenServer.start_link/3`.
-
   ## Return values
 
   It returns `{:ok, pid}` when connection to one of `contact_points` established and metadata fetched,
   on any error it returns `{:error, reason}`.
   """
   def start_link(options \\ []) do
-    GenServer.start(__MODULE__, options)
+    server_options = Keyword.take(options, [:name])
+    GenServer.start(__MODULE__, options, server_options)
   end
 
   def start_session(cluster, options) do
@@ -76,10 +76,12 @@ defmodule Cassandra.Cluster do
 
   @doc false
   def init(options) do
+    fetcher = Keyword.get(options, :fetcher, @default_fetcher)
+    schema_name = Keyword.get(options, :schema_name)
     options = Keyword.take(options, @valid_options)
 
-    with {:ok, connection, local_data} <- setup(options),
-         {:ok, schema} <- Schema.start(local_data, connection)
+    with {:ok, local_data, connection} <- setup(fetcher, options),
+         {:ok, schema} <- Schema.start_link(local_data, connection, fetcher, name: schema_name)
     do
       {:ok, %{
         options: options,
@@ -93,7 +95,7 @@ defmodule Cassandra.Cluster do
 
   def handle_call({:start_session, options}, _from, %{sessions: sessions} = state) do
     pool_name = Keyword.get(options, :pool_name, Cassandra.Session.Executors)
-    with {:ok, session} <- Cassandra.Session.Supervisor.start_link(state.schema, pool_name, options) do
+    with {:ok, session} <- Cassandra.Session.start_link(state.schema, pool_name, options) do
       {:reply, {:ok, pool_name}, %{state | sessions: [session | sessions]}}
     else
       error -> {:reply, error, state}
@@ -102,60 +104,41 @@ defmodule Cassandra.Cluster do
 
   ### Helpers ###
 
-  defp setup(options) do
+  defp setup(fetcher, options) do
     contact_points = Keyword.get(options, :contact_points, ["127.0.0.1"])
     connection_options = Keyword.merge(options, [async_init: false])
 
     contact_points
-    |> Stream.map(&start_connection(&1, connection_options))
-    |> Stream.filter_map(&ok?/1, &value/1)
-    |> Stream.map(&select_local/1)
+    |> Stream.map(&setup_connection(&1, connection_options, fetcher))
     |> Stream.reject(&error?/1)
-    |> Stream.filter(&bootstrapped?/1)
-    |> Stream.filter(&named?(&1, options[:cluster_name]))
     |> Enum.take(1)
     |> case do
-      [{conn, local}] ->
-        {:ok, conn, local}
-      [] ->
-        {:error, :no_avaliable_contact_points}
+      [result] -> result
+      []       -> {:error, :no_contact_point_available}
     end
   end
 
-  defp start_connection({address, port}, options) do
-    start_connection(address, Keyword.put(options, :port, port))
+  defp setup_connection(address, options, fetcher) do
+    with {:ok, connection} <- Connection.start(address, options),
+         {:ok, local_data} <- Schema.Fetcher.fetch_local(connection, fetcher)
+    do
+      if bootstrapped?(local_data) and named?(local_data, options[:cluster_name]) do
+        {:ok, local_data, connection}
+      else
+        :error
+      end
+    end
   end
-
-  defp start_connection(address, options) do
-    options
-    |> Keyword.put(:host, address)
-    |> Cassandra.Connection.start
-  end
-
-  defp ok?({:ok, _}), do: true
-  defp ok?(_), do: false
 
   defp error?(:error), do: true
   defp error?(_), do: false
 
-  defp value({_, v}), do: v
-
-  defp bootstrapped?({_conn, local}) do
-    Map.get(local, "bootstrapped") == "COMPLETED"
+  defp bootstrapped?(local_data) do
+    Map.get(local_data, "bootstrapped") == "COMPLETED"
   end
 
   def named?(_, nil), do: true
-  def named?({_conn, local}, name) do
-    Map.get(local, "cluster_name") == name
-  end
-
-  defp select_local(conn) do
-    with {:ok, rows} <- Cassandra.Connection.send(conn, @select_local),
-         [local] <- CQL.Result.Rows.to_map(rows)
-    do
-      {conn, local}
-    else
-      _ -> :error
-    end
+  def named?(local_data, name) do
+    Map.get(local_data, "cluster_name") == name
   end
 end

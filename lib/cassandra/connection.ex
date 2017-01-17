@@ -35,8 +35,16 @@ defmodule Cassandra.Connection do
 
   See start_link/2 for more information.
   """
-  def start(options \\ [], gen_server_options \\ []) do
-    Connection.start(__MODULE__, options, gen_server_options)
+  def start(options \\ []) do
+    Connection.start(__MODULE__, options)
+  end
+
+  def start({ip, port}, options) do
+    start(ip, Keyword.put(options, :port, port))
+  end
+
+  def start(ip, options) do
+    start(Keyword.put(options, :host, ip))
   end
 
   @doc """
@@ -56,16 +64,22 @@ defmodule Cassandra.Connection do
   * `:event_manager` - pid of process for handling events
   * `:manager` - pid of Cassandra.ConnectionManager
 
-  For `gen_server_options` values see `GenServer.start_link/3`.
-
   ## Return values
 
   If `:async_init` options is set it returns `{:ok, pid}`, otherwise `:async_init` is `false`
   it returns `{:ok, pid}` after opening connection sending handshake and seting keyspace, and on error
   it returns `{:error, reason}` where reason is one of `:connection_failed`, `:handshake_error` or `:keyspace_error`.
   """
-  def start_link(options \\ [], gen_server_options \\ []) do
-    Connection.start_link(__MODULE__, options, gen_server_options)
+  def start_link(options \\ []) do
+    Connection.start_link(__MODULE__, options)
+  end
+
+  def start_link({ip, port}, options) do
+    start_link(ip, Keyword.put(options, :port, port))
+  end
+
+  def start_link(ip, options) do
+    start_link(Keyword.put(options, :host, ip))
   end
 
   @doc """

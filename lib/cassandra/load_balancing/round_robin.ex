@@ -11,14 +11,17 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
   defstruct [num_connections: 1, max_tries: 3]
 
   defimpl Cassandra.LoadBalancing.Policy do
+    alias Cassandra.LoadBalancing
+    alias Cassandra.Session.ConnectionManager
+
     def plan(balancer, statement, _schema, connection_manager) do
       connections =
         connection_manager
-        |> Cassandra.Session.ConnectionManager.connections
+        |> ConnectionManager.connections
         |> Enum.shuffle
-        |> Cassandra.LoadBalancing.take(balancer.max_tries)
+        |> LoadBalancing.take(balancer.max_tries)
 
-      %{statement | connections: connections}
+      {:ok, %{statement | connections: connections}}
     end
 
     def count(balancer, _) do

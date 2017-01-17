@@ -1,14 +1,14 @@
 defmodule Cassandra.Session.Executor do
   use GenServer
-  # @behaviour :poolboy_worker
+  @behaviour :poolboy_worker
 
   import Kernel, except: [send: 2]
   alias Cassandra.{LoadBalancing, Statement}
 
   ### API ###
 
-  def start_link(schema, balancer, task_supervisor, connection_manager, options) do
-    GenServer.start_link(__MODULE__, [schema, balancer, task_supervisor, connection_manager, options], name: __MODULE__)
+  def start_link([schema, balancer, task_supervisor, connection_manager, options]) do
+    GenServer.start_link(__MODULE__, [schema, balancer, task_supervisor, connection_manager, options])
   end
 
   def execute(executor, %Cassandra.Statement{} = statement) do
@@ -38,9 +38,10 @@ defmodule Cassandra.Session.Executor do
   @doc false
   def handle_call({:execute, statement}, _from, state) do
     result =
-      statement
-      |> LoadBalancing.plan(state.balancer, state.schema, state.connection_manager)
-      |> encode
+      case LoadBalancing.plan(statement, state.balancer, state.schema, state.connection_manager) do
+        {:ok, statement} -> encode(statement)
+        error            -> error
+      end
 
     {:reply, result, state}
   end
