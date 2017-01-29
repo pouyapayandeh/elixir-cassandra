@@ -33,5 +33,5 @@ defmodule CQL.BatchQuery do
     ])
   end
 
-  def encode(_), do: :error
+  def encode(_), do: CQL.Error.new("invalid request")
 end

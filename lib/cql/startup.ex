@@ -9,12 +9,11 @@ defmodule CQL.Startup do
 
   defimpl Request do
     def encode(%Startup{options: options}) do
-      case string_map(options) do
-        :error -> :error
-        body   -> {:STARTUP, body}
+      with {:ok, body} <- ok(string_map(options)) do
+        {:STARTUP, body}
       end
     end
 
-    def encode(_), do: :error
+    def encode(_), do: CQL.Error.new("invalid request")
   end
 end

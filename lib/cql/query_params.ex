@@ -60,14 +60,13 @@ defmodule CQL.QueryParams do
     if Enum.empty?(values) do
       encode(q, false, false, nil)
     else
-      case values(values) do
-        :error -> :error
-        encoded -> encode(q, true, is_map(values), encoded)
+      with {:ok, encoded} <- ok(values(values)) do
+        encode(q, true, is_map(values), encoded)
       end
     end
   end
 
-  def encode(_), do: :error
+  def encode(_), do: CQL.Error.new("invalud params")
 
   defp encode(q, has_values, has_names, values) do
     has_timestamp = is_integer(q.timestamp) and q.timestamp > 0

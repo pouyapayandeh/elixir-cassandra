@@ -16,12 +16,11 @@ defmodule CQL.Register do
 
   defimpl Request do
     def encode(%CQL.Register{types: types}) do
-      case string_list(types) do
-        :error -> :error
-        body   -> {:REGISTER, body}
+      with {:ok, body} <- ok(string_list(types)) do
+        {:REGISTER, body}
       end
     end
 
-    def encode(_), do: :error
+    def encode(_), do: CQL.Error.new("invalid request")
   end
 end

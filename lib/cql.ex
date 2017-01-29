@@ -2,14 +2,27 @@ defmodule CQL do
   @moduledoc false
 
   def decode(buffer) do
-    {frame, rest} = CQL.Frame.decode(buffer)
-    {decode_body(frame), rest}
+    with {:ok, frame} <- CQL.Frame.decode(buffer) do
+      {:ok, decode_body(frame)}
+    else
+      _ -> CQL.Error.new("unexpected bytes")
+    end
+  end
+
+  def decode_error(frame) do
+    if CQL.Frame.is_error?(frame) do
+      with {:ok, %CQL.Frame{body: error}} <- decode(frame) do
+        error
+      end
+    else
+      {:ok, frame}
+    end
   end
 
   def decode_body(nil), do: nil
 
-  def decode_body(%CQL.Frame{opration: opration, body: body} = frame) do
-    body = case opration do
+  def decode_body(%CQL.Frame{operation: operation, body: body} = frame) do
+    body = case operation do
       :ERROR     -> CQL.Error.decode(body)
       :READY     -> CQL.Ready.decode(body)
       :RESULT    -> CQL.Result.decode(body)
@@ -22,22 +35,18 @@ defmodule CQL do
   end
 
   def encode(request, stream \\ 0) do
-    case CQL.Request.encode(request) do
-      {opration, body} ->
-        frame = %CQL.Frame{opration: opration, body: body, stream: stream}
-        cql = CQL.Frame.encode(frame)
-        {:ok, cql}
-      :error ->
-        {:error, :invalid_request}
+    with {operation, body} <- CQL.Request.encode(request) do
+      frame = %CQL.Frame{operation: operation, body: body, stream: stream}
+      cql = CQL.Frame.encode(frame)
+      {:ok, cql}
     end
   end
 
   def encode!(request, stream \\ 0) do
-    case encode(request, stream) do
-      {:ok, cql} ->
-        cql
-      {:error, :invalid_request} ->
-        raise ArgumentError.exception("invalid request")
+    with {:ok, cql} <- encode(request, stream) do
+      cql
+    else
+      error -> raise error
     end
   end
 

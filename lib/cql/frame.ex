@@ -95,11 +95,11 @@ defmodule CQL.Frame do
     {frame, rest}
   end
 
-  def decode(buffer), do: {nil, buffer}
+  def decode(_), do: CQL.Error.new("invalid frame")
 
-  def set_stream_id(<<prefix::bits-16, _::signed-integer-16, rest::binary>>, id) do
-    {:ok, <<prefix::bits-16, id::signed-integer-16, rest::binary>>}
+  def set_stream_id(<<head::bits-16, _::signed-integer-16, tail::binary>>, id) do
+    {:ok, <<head::bits-16, id::signed-integer-16, tail::binary>>}
   end
 
-  def set_stream_id(_, _), do: :error
+  def set_stream_id(_, _), do: CQL.Error.new("invalid frame")
 end

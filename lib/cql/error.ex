@@ -3,7 +3,7 @@ defmodule CQL.Error do
 
   import CQL.DataTypes.Decoder
 
-  defstruct [:code, :message, :info]
+  defexception [:code, :message, :info]
 
   @codes %{
     0x0000 => :server_error,
@@ -23,6 +23,14 @@ defmodule CQL.Error do
     0x2400 => :already_exists,
     0x2500 => :unprepared,
   }
+
+  def new(message, info \\ "") do
+    %__MODULE__{code: :invalid, message: message, info: info}
+  end
+
+  def message(%__MODULE__{code: code, message: message, info: info}) do
+    "[#{inspect code}] #{message}: #{info}"
+  end
 
   def decode(buffer) do
     {error, rest} = unpack buffer,
