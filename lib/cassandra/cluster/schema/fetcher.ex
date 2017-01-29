@@ -11,6 +11,7 @@ defmodule Cassandra.Cluster.Schema.Fetcher do
 
   def fetch(local_data, connection, version \\ Schema.Fetcher.V3_0_x) do
     data_center = Map.get(local_data, "data_center")
+    cluster_name = Map.get(local_data, "cluster_name")
     partitioner = Schema.Partitioner.partitioner(local_data)
     parser = &partitioner.parse_token/1
     local = Host.new(local_data, :up, data_center, parser)
@@ -28,22 +29,32 @@ defmodule Cassandra.Cluster.Schema.Fetcher do
         |> Enum.map(&{&1.name, &1})
         |> Enum.into(%{})
 
-      {:ok, %{hosts: hosts_map, keyspaces: keyspaces_map, partitioner: partitioner}}
+      schema = %{
+        local: local,
+        hosts: hosts_map,
+        keyspaces: keyspaces_map,
+        partitioner: partitioner,
+        data_center: data_center,
+        cluster_name: cluster_name,
+        parser: parser,
+      }
+
+      {:ok, schema}
     end
   end
 
   def fetch_local(connection, version) do
     connection
-    |> Connection.send(version.select_local)
+    |> Connection.query(version.select_local)
     |> one
   end
 
   def fetch_peers(data_center, parser, connection, version) do
-    with {:ok, rows} <- Cassandra.Connection.send(connection, version.select_peers) do
+    with %CQL.Result.Rows{} = rows <- Cassandra.Connection.query(connection, version.select_peers) do
       peers =
         rows
         |> CQL.Result.Rows.to_map
-        |> Enum.map(&Host.new(&1, :up, data_center, parser))
+        |> Enum.map(&Host.new(&1, :get, data_center, parser))
         |> Enum.reject(&is_nil/1)
 
       {:ok, peers}
@@ -52,12 +63,12 @@ defmodule Cassandra.Cluster.Schema.Fetcher do
 
   def fetch_peer(ip, data_center, parser, connection, version) do
     connection
-    |> Connection.send(version.select_peer(ip))
-    |> one(&Host.new(&1, :up, data_center, parser))
+    |> Connection.query(version.select_peer(ip))
+    |> one(&Host.new(&1, :down, data_center, parser))
   end
 
   def fetch_keyspaces(connection, version) do
-    with {:ok, rows} <- Cassandra.Connection.send(connection, version.select_keyspaces) do
+    with %CQL.Result.Rows{} = rows <- Cassandra.Connection.query(connection, version.select_keyspaces) do
       keyspaces =
         rows
         |> CQL.Result.Rows.to_map
@@ -70,11 +81,11 @@ defmodule Cassandra.Cluster.Schema.Fetcher do
 
   def fetch_keyspace(name, connection, version) do
     connection
-    |> Connection.send(version.select_keyspace(name))
+    |> Connection.query(version.select_keyspace(name))
     |> one(&Keyspace.new/1)
   end
 
-  defp one({:ok, rows}) do
+  defp one(%CQL.Result.Rows{} = rows) do
     case CQL.Result.Rows.to_map(rows) do
       []    -> {:error, :not_found}
       [one] -> {:ok, one}
