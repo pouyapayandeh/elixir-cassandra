@@ -44,7 +44,7 @@ defmodule CQL.Frame do
   }
 
   def encode(%__MODULE__{} = f) do
-    Enum.join [
+    IO.iodata_to_binary [
       byte(f.version),
       byte(names_to_flag(f.flags, @flags)),
       signed_short(f.stream),
@@ -54,6 +54,29 @@ defmodule CQL.Frame do
     ]
   end
 
+  def body_length(<<_::40, length::integer-32>>), do: {:ok, length}
+  def body_length(_), do: CQL.Error.new("invalid body length")
+
+  def is_error?(<<_::32, 0::integer-8, _::binary>>), do: true
+  def is_error?(_), do: false
+
+  def decode_header(<<
+      version::integer-8,
+      flags::integer-8,
+      stream::signed-integer-16,
+      opcode::integer-8,
+      length::integer-32
+    >>)
+  do
+    {:ok, %{version: version,
+      flags: flags,
+      stream: stream,
+      opcode: opcode,
+      length: length,
+    }}
+  end
+  def decode_header(_), do: CQL.Error.new("invalid header")
+
   def decode(<<
       version::integer-8,
       flags::integer-8,
@@ -61,7 +84,6 @@ defmodule CQL.Frame do
       opcode::integer-8,
       length::integer-32,
       body::binary-size(length),
-      rest::binary,
     >>)
   do
     flags = Decoder.flag_to_names(flags, @flags)
@@ -91,7 +113,7 @@ defmodule CQL.Frame do
       body: body,
     }
 
-    {frame, rest}
+    {:ok, frame}
   end
 
   def decode(_), do: CQL.Error.new("invalid frame")

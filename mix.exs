@@ -24,7 +24,7 @@ defmodule Cassandra.Mixfile do
   ]
 
   def application, do: [
-    applications: [:logger],
+    applications: [:logger, :db_connection],
   ]
 
   defp deps, do: [
@@ -32,6 +32,7 @@ defmodule Cassandra.Mixfile do
     {:uuid, "~> 1.1"},
     {:poolboy, "~> 1.5"},
     {:elixir_make, "~> 0.4", runtime: false},
+    {:db_connection, "~> 1.1"},
     {:excheck, "~> 0.5", only: :test},
     {:triq, github: "triqng/triq", only: :test},
     {:excoveralls, "~> 0.5", only: :test},
