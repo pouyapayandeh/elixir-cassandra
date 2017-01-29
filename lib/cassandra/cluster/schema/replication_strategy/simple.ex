@@ -1,6 +1,6 @@
 defmodule Cassandra.Cluster.Schema.ReplicationStrategy.Simple do
-  def replications(replication, token_hosts, token_ring) do
-    size = length(token_ring)
+  def replications(replication, token_ring, _schema) do
+    size   = Enum.count(token_ring)
     factor = Map.get(replication, "replication_factor", "1")
     factor = case Integer.parse(factor) do
       {x, ""} when size < x -> size
@@ -10,17 +10,14 @@ defmodule Cassandra.Cluster.Schema.ReplicationStrategy.Simple do
 
     token_ring
     |> Enum.with_index
-    |> Enum.map(fn {token, i} ->
-         tokens =
+    |> Enum.map(fn {{token, _host}, i} ->
+         hosts =
            token_ring
            |> Stream.cycle
            |> Stream.drop(i)
+           |> Stream.map(fn {_, host} -> host end)
+           |> Stream.uniq
            |> Enum.take(factor)
-
-         hosts =
-           token_hosts
-           |> Keyword.take(tokens)
-           |> Keyword.values
 
          {token, hosts}
        end)

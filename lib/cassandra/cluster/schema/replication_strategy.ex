@@ -1,13 +1,14 @@
 defmodule Cassandra.Cluster.Schema.ReplicationStrategy do
-  alias Cassandra.Cluster.Schema.ReplicationStrategy
+  alias Cassandra.Cluster.Schema.ReplicationStrategy.{Simple, Local, None}
 
-  @default_strategy ReplicationStrategy.None
+  @default_strategy None
   @strategies %{
-    "org.apache.cassandra.locator.SimpleStrategy" => ReplicationStrategy.Simple,
+    "org.apache.cassandra.locator.SimpleStrategy" => Simple,
+    "org.apache.cassandra.locator.LocalStrategy"  => Local,
   }
 
-  def replications(replication, token_hosts, token_ring) do
-    strategy(replication).replications(replication, token_hosts, token_ring)
+  def replications(replication, token_ring, schema) do
+    strategy(replication).replications(replication, token_ring, schema)
   end
 
   def strategy(replication) do

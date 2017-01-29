@@ -7,8 +7,8 @@ defmodule Cassandra.LoadBalancing do
 
   defmacro distances, do: @distances
 
-  def plan(statement, balancer, schema, connection_manager) do
-    Policy.plan(balancer, statement, schema, connection_manager)
+  def plan(statement, balancer, cluster, connection_manager) do
+    Policy.plan(balancer, statement, cluster, connection_manager)
   end
 
   def count(balancer, host) do
