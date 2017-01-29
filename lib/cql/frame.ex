@@ -2,14 +2,13 @@ defmodule CQL.Frame do
   @moduledoc false
 
   import CQL.DataTypes.Encoder
-
   alias CQL.DataTypes.Decoder
 
   defstruct [
     version: 0x04,
     flags: [],
     stream: 0,
-    opration: 0,
+    operation: 0,
     length: 0,
     warnings: [],
     tracing_id: nil,
@@ -49,7 +48,7 @@ defmodule CQL.Frame do
       byte(f.version),
       byte(names_to_flag(f.flags, @flags)),
       signed_short(f.stream),
-      byte(Map.fetch!(@operations, f.opration)),
+      byte(Map.fetch!(@operations, f.operation)),
       int(byte_size(f.body)),
       f.body,
     ]
@@ -87,7 +86,7 @@ defmodule CQL.Frame do
       warnings: warnings,
       tracing_id: tracing_id,
       stream: stream,
-      opration: Map.fetch!(@operation_names, opcode),
+      operation: Map.fetch!(@operation_names, opcode),
       length: length,
       body: body,
     }
