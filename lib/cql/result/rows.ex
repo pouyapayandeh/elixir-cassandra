@@ -9,6 +9,7 @@ defmodule CQL.Result.Rows do
     :columns,
     :rows,
     :rows_count,
+    :paging_state,
   ]
 
   @doc false
@@ -19,13 +20,12 @@ defmodule CQL.Result.Rows do
 
     {rows, ""} = ntimes(meta.rows_count, row_content(meta.metadata), buffer)
 
-    result = %__MODULE__{
+    %__MODULE__{
       columns: Keyword.keys(meta.metadata.column_types),
       rows: rows,
       rows_count: meta.rows_count,
+      paging_state: Map.get(meta.metadata, :paging_state),
     }
-
-    {result, Map.get(meta.metadata, :paging_state)}
   end
 
   @doc """
