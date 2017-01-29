@@ -153,12 +153,6 @@ defmodule Cassandra.Connection do
     end
   end
 
-  defp encode_send_receive(request, socket, timeout) do
-    with {:ok, request} <- CQL.encode(request) do
-      fetch(request, socket, timeout)
-    end
-  end
-
   defp tcp_send(socket, request) do
     with :ok <- :gen_tcp.send(socket, request) do
       :ok

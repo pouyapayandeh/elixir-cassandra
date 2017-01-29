@@ -7,94 +7,92 @@ defmodule Cassandra.Session.Executor do
 
   ### API ###
 
-  def start_link([schema, balancer, task_supervisor, connection_manager, options]) do
-    GenServer.start_link(__MODULE__, [schema, balancer, task_supervisor, connection_manager, options])
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args)
   end
 
-  def execute(executor, %Cassandra.Statement{} = statement) do
-    GenServer.call(executor, {:execute, statement})
+  def prepare(executor, %Statement{} = statement) do
+    GenServer.call(executor, {:prepare, statement})
   end
 
-  def execute(executor, query, options \\ []) do
-    statement = Cassandra.Statement.new(query, options)
-    execute(executor, statement)
+  def execute(executor, %Statement{prepared: nil} = statement, values) do
+    GenServer.call(executor, {:prepare_and_execute, statement, values})
+  end
+
+  def execute(executor, %Statement{} = statement, values) do
+    GenServer.call(executor, {:execute, statement, values})
+  end
+
+  def execute(executor, query, options) do
+    statement = %Statement{query: query, params: options}
+    execute(executor, statement, Keyword.get(options,:values, []))
   end
 
   ### GenServer Callbacks ###
 
   @doc false
-  def init([schema, balancer, task_supervisor, connection_manager, options]) do
-    state = %{
-      options: options,
-      schema: schema,
-      balancer: balancer,
-      connection_manager: connection_manager,
-      task_supervisor: task_supervisor,
-    }
+  def init([cluster, options]) do
+    with {:ok, balancer} <- Keyword.fetch(options, :balancer),
+         {:ok, connection_manager} <- Keyword.fetch(options, :connection_manager)
+    do
+      state = %{
+        options: Keyword.drop(options, [:balancer, :connection_manager]),
+        cluster: cluster,
+        balancer: balancer,
+        connection_manager: connection_manager,
+      }
 
-    {:ok, state}
+      {:ok, state}
+    else
+      :error -> {:stop, :missing_param}
+    end
   end
 
   @doc false
-  def handle_call({:execute, statement}, _from, state) do
-    result =
-      case LoadBalancing.plan(statement, state.balancer, state.schema, state.connection_manager) do
-        {:ok, statement} -> encode(statement)
-        error            -> error
-      end
+  def handle_call({:prepare, statement}, _from, state) do
+    reply =
+      statement
+      |> plan_and_run(:prepare, state)
 
-    {:reply, result, state}
+    {:reply, reply, state}
   end
 
-  defp encode(%Statement{request: request} = statement) do
-    start = :os.perf_counter(:nanosecond)
-    encoded = CQL.encode(request)
-    encode_time = :os.perf_counter(:nanosecond) - start
-    profile = update_profile(statement.profile, %{encode_time: encode_time, start: start})
 
-    with {:ok, cql} <- encoded do
-      execute(%{statement | profile: profile, cql: cql})
+  @doc false
+  def handle_call({:execute, statement, values}, _from, state) do
+    reply =
+      statement
+      |> Statement.put_values(values)
+      |> plan_and_run(:execute, state)
+
+    {:reply, reply, state}
+  end
+
+  defp plan_and_run(%Statement{} = statement, action, state) do
+    statement
+    |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
+    |> run(action, state.options)
+  end
+
+  defp run(%Statement{connections: []}, _, _options) do
+    Cassandra.Connection.Error.new("execute", "no connection")
+  end
+
+  defp run(%Statement{connections: [connection | connections]} = statement, :prepare, options) do
+    case DBConnection.prepare(connection, statement, options) do
+      {:ok, result}                          -> result
+      {:error, %CQL.Error{} = error}         -> error
+      {:error, %Cassandra.ConnectionError{}} ->
+        run(%Statement{statement | connections: connections}, :prepare, options)
     end
   end
 
-  defp execute(%Statement{connections: []}) do
-    {:error, :max_tries}
-  end
-
-  defp execute(%Statement{cql: cql, connections: [connection | connections]} = statement) when is_binary(cql) do
-    start = :os.perf_counter(:nanosecond)
-    result = Cassandra.Connection.send(connection, cql, :infinity)
-    query_time = :os.perf_counter(:nanosecond) - start
-    profile = update_profile(statement.profile, %{query_time: query_time})
-
-    case result do
-      {:ok, %CQL.Result.Prepared{} = prepared} ->
-        execute = %CQL.Execute{prepared: prepared, params: CQL.QueryParams.new(statement.options)}
-        encode(%{statement | profile: profile, request: execute})
-      {:ok, _} ->
-        {result, result_profile(profile)}
-      {:error, {_, _}} -> # CQL Error
-        {result, result_profile(profile)}
-      {:error, _} -> # Connection error so tring other connections
-        execute(%{statement | connections: connections})
+  defp run(%Statement{connections: [connection | connections]} = statement, :execute, options) do
+    case DBConnection.execute(connection, statement, statement.values, options) do
+      {:ok, result}                          -> result
+      {:error, %CQL.Error{} = error}         -> error
+      {:error, %Cassandra.ConnectionError{}} ->
+        run(%Statement{statement | connections: connections}, :execute, options)
     end
-  end
-
-  defp update_profile(a, b) do
-    Map.merge a, b, fn
-      :start, x, _ -> x
-      _,      x, y -> x + y
-    end
-  end
-
-  defp result_profile(%{start: start} = profile) do
-    total_time = :os.perf_counter(:nanosecond) - start
-    profile = Map.delete(profile, :start)
-    used_time =
-      profile
-      |> Map.values
-      |> Enum.reduce(&Kernel.+/2)
-
-    Map.merge(profile, %{total_time: total_time, queue_time: total_time - used_time})
   end
 end

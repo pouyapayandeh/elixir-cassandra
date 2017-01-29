@@ -1,195 +1,112 @@
 defmodule Cassandra.Session.ConnectionManager do
   use GenServer
-  require Logger
 
-  alias Cassandra.{LoadBalancing, Reconnection}
-  alias Cassandra.Cluster.Schema
-
-  @default_connection_options [
-    reconnection: {Reconnection.Exponential, []},
-    async_init: true,
-  ]
-
-  @valid_connection_options [
-    :port,
-    :connection_timeout,
-    :timeout,
-    :keyspace,
-    :reconnection,
-  ]
+  alias Cassandra.{Cluster, Connection, LoadBalancing}
 
   ### API ###
 
-  def start_link(schema, balancer, task_supervisor, name, options) do
-    GenServer.start_link(__MODULE__, [schema, balancer, task_supervisor, options], name: name)
+  def start_link(cluster, options) do
+    server_options = case Keyword.get(options, :connection_manager) do
+      nil  -> []
+      name -> [name: name]
+    end
+    GenServer.start_link(__MODULE__, [cluster, options], server_options)
   end
 
   def connections(manager) do
     GenServer.call(manager, :connections)
   end
 
-  def connections(manager, ips) do
-    GenServer.call(manager, {:connections, ips})
-  end
-
-  def host(manager, connection) do
-    GenServer.call(manager, {:host, connection})
-  end
-
-  def connect(manager, host) do
-    GenServer.cast(manager, {:connect, host})
+  def connections(manager, ip_list) do
+    GenServer.call(manager, {:connections, ip_list})
   end
 
   ### GenServer Callbacks ###
 
-  @doc false
-  def init([schema, balancer, task_supervisor, options]) do
-    table_options = [
-      :set,
-      :protected,
-      {:read_concurrency, true},
-    ]
-
-    connections_table = Keyword.get(options, :table_name, __MODULE__)
-    connections_tid = :ets.new(connections_table, table_options)
-
-    statements_table = Keyword.get(options, :statements_table, :"#{__MODULE__}.Statements")
-    statements_tid = :ets.new(statements_table, table_options)
-
-    options = Keyword.take(options, @valid_connection_options)
-
-    self = self()
-    connection_options =
-      @default_connection_options
-      |> Keyword.merge(options)
-      |> Keyword.put(:manager, self)
-
-    Task.Supervisor.start_child task_supervisor, fn ->
-      IO.inspect(schema
-      |> Schema.up_hosts)
-      |> start_connections(balancer, connection_options)
-    end
-
-    state = %{
-      schema: schema,
-      balancer: balancer,
-      task_supervisor: task_supervisor,
-      connection_options: connection_options,
-      connections_tid: connections_tid,
-      statements_tid: statements_tid,
-    }
-
-    {:ok, state}
-  end
-
-  @doc false
-  def handle_call(:connections, from, %{connections_tid: connections_tid} = state) do
-    Task.Supervisor.start_child state.task_supervisor, fn ->
-      connections = :ets.select(connections_tid, [{{:"$1", :_, :open}, [], [:"$1"]}])
-      GenServer.reply(from, connections)
-    end
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_call({:connections, ip_list}, from, %{connections_tid: connections_tid} = state) do
-    Task.Supervisor.start_child state.task_supervisor, fn ->
+  def init([cluster, options]) do
+    with {:ok, balancer} <- Keyword.fetch(options, :balancer) do
       connections =
-        ip_list
-        |> List.wrap
-        |> Enum.map(&:ets.select(connections_tid, [{{:"$1", :"$2", :open}, [{:"=:=", {:const, &1}, :"$2"}], [:"$1"]}]))
-        |> Enum.concat
+        cluster
+        |> Cluster.up_hosts
+        |> Enum.map(&start_connection(&1, balancer, options))
+        |> Enum.filter_map(&match?({:ok, _, _}, &1), fn {:ok, ip, pid} -> {ip, pid} end)
 
-      GenServer.reply(from, connections)
+      state = %{
+        cluster: cluster,
+        balancer: balancer,
+        options: options,
+        connections: connections,
+      }
+
+      {:ok, state}
+    else
+      :error -> {:stop, :missing_param}
     end
+  end
+
+  def handle_call(:connections, _from, %{connections: connections} = state) do
+    reply = Enum.map connections, fn {_ip, pid} -> pid end
+    {:reply, reply, state}
+  end
+
+  def handle_call({:connections, ips}, _from, %{connections: connections} = state) do
+    ips = ips |> List.wrap |> MapSet.new
+    reply =
+      Enum.filter_map connections,
+        fn {ip, _pid} -> ip in ips end,
+        fn {_ip, pid} -> pid end
+
+    {:reply, reply, state}
+  end
+
+  def handle_info({:host, :up, host}, state) do
+    connections =
+      case start_connection(host, state.balancer, state.options) do
+        {:ok, ip, pid} -> [{ip, pid} | state.connections]
+        _              -> state.connections
+      end
+
+    {:noreply, %{state | connections: connections}}
+  end
+
+  def handle_info({:host, status, host}, state)
+  when status in [:down, :lost]
+  do
+    connections =
+      case List.keyfind(state.connections, host.ip, 0) do
+        nil -> state.connections
+        {_, pid} = item ->
+          GenServer.stop(pid)
+          List.delete(state.connections, item)
+      end
+    {:noreply, %{state | connections: connections}}
+  end
+
+  def handle_info({:host, _status, _host}, state) do
     {:noreply, state}
   end
 
-  @doc false
-  def handle_call({:host, connection}, from, %{connections_tid: connections_tid} = state) do
-    Task.Supervisor.start_child state.task_supervisor, fn ->
-      ip = :ets.lookup_element(connections_tid, connection, 2)
-      GenServer.reply(from, ip)
+  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+    connections = List.keydelete(state.connections, pid, 1)
+    {:noreply, %{state | connections: connections}}
+  end
+
+  ### Helpers ###
+
+  defp connection_options(host, count, options) do
+    manager = self()
+    Keyword.merge(options, [
+      host: host.ip,
+      pool_size: count,
+    ])
+  end
+
+  defp start_connection(host, balancer, options) do
+    count = LoadBalancing.count(balancer, host)
+    with {:ok, pid} <- DBConnection.start_link(Connection, connection_options(host, count, options)) do
+      Process.monitor(pid)
+      Process.unlink(pid)
+      {:ok, host.ip, pid}
     end
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_cast({:connect, ip}, %{schema: schema, balancer: balancer, connection_options: connection_options} = state) do
-    schema
-    |> Schema.host(ip)
-    |> start_connections(balancer, connection_options)
-
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_info({:notify, change, ip, connection}, state) do
-    case change do
-      :connection_opened ->
-        :ets.insert(state.connections_tid, {connection, ip, :open})
-
-      :connection_closed ->
-        :ets.update_element(state.connections_tid, connection, {3, :close})
-
-      :connection_stopped ->
-        :ets.delete(state.connections_tid, connection)
-
-      {:prepared, hash, prepared} ->
-        :ets.insert(state.statements_tid, {hash, prepared})
-
-      other ->
-        Logger.warn("#{__MODULE__} unhandled notify #{inspect other}")
-    end
-
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_info({:event, {:host_found, {ip, _}}}, %{schema: schema, balancer: balancer, connection_options: connection_options} = state) do
-    schema
-    |> Schema.host(ip)
-    |> start_connections(balancer, connection_options)
-
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_info({:event, _}, state) do
-    {:noreply, state}
-  end
-
-  @doc false
-  def handle_info({:DOWN, _ref, :process, connection, _reason}, state) do
-    :ets.delete(state.connections_tid, connection)
-    {:noreply, state}
-  end
-
-  ### Internals ###
-
-  defp start_connections(hosts, balancer, connection_options) when is_list(hosts) do
-    hosts
-    |> List.wrap
-    |> Enum.map(fn host -> {host.ip, LoadBalancing.count(balancer, host)} end)
-    |> Enum.flat_map(&start_connection(&1, connection_options))
-    |> Enum.each(fn
-         {_host, {:ok, _connection}} ->
-           :ok
-         {host, {:error, reason}} ->
-           Logger.warn("Connection to #{inspect host} failed with reason #{reason}")
-       end)
-  end
-
-  defp start_connection({ip, count}, options) when count > 0 do
-    Enum.map(1..count, fn _ -> start_connection(ip, options) end)
-  end
-
-  defp start_connection(ip, options) do
-    result =
-      options
-      |> Keyword.put(:host, ip)
-      |> Cassandra.Connection.start
-
-    {ip, result}
   end
 end
