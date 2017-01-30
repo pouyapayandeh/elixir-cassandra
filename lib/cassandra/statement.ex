@@ -1,6 +1,7 @@
 defmodule Cassandra.Statement do
   defstruct [
     :query,
+    :options,
     :params,
     :prepared,
     :request,
@@ -12,9 +13,26 @@ defmodule Cassandra.Statement do
     :connections,
   ]
 
+  def new(query, options) do
+    %__MODULE__{
+      query: query,
+      options: options,
+    }
+  end
+
   def put_values(statement, values) do
     partition_key = partition_key(statement, values)
     %__MODULE__{statement | partition_key: partition_key, values: values}
+  end
+
+  def put_prepared(statement, prepared) do
+    %__MODULE__{statement | prepared: prepared}
+    |> clean
+    |> set_pk_picker
+  end
+
+  def clean(statement) do
+    %__MODULE__{statement | request: nil, response: nil, connections: nil}
   end
 
   def set_pk_picker(%__MODULE__{partition_key_picker: picker} = statement)
@@ -37,11 +55,15 @@ defmodule Cassandra.Statement do
   defp partition_key(_, _), do: nil
 
   defimpl DBConnection.Query do
-    import CQL.DataTypes.Encoder
     alias Cassandra.Statement
 
-    def encode(statement, values, _options) do
-      params  = %CQL.QueryParams{statement.params | values: values}
+    def encode(statement, values, options) do
+      params =
+        (statement.options || [])
+        |> Keyword.merge(options)
+        |> Keyword.put(:values, values)
+        |> CQL.QueryParams.new
+
       execute = %CQL.Execute{prepared: statement.prepared, params: params}
       with {:ok, request} <- CQL.encode(execute) do
         request
@@ -56,19 +78,14 @@ defmodule Cassandra.Statement do
 
     def describe(statement, _options) do
       with {:ok, %CQL.Frame{body: %CQL.Result.Prepared{} = prepared}} <- CQL.decode(statement.response) do
-        Statement.set_pk_picker(%Statement{statement | prepared: prepared, request: nil, response: nil, connections: nil})
+        prepared
       end
     end
 
-    def parse(statement, options) do
+    def parse(statement, _options) do
       prepare = %CQL.Prepare{query: statement.query}
       with {:ok, request} <- CQL.encode(prepare) do
-        params =
-          (statement.params || [])
-          |> Keyword.merge(options)
-          |> CQL.QueryParams.new
-
-        %Statement{statement | params: params, request: request}
+        %Statement{statement | request: request}
       end
     end
   end

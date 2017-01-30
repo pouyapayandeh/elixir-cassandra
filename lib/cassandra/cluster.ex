@@ -10,7 +10,7 @@ defmodule Cassandra.Cluster do
 
   require Logger
 
-  alias Cassandra.{Connection, ConnectionError, Host}
+  alias Cassandra.{Connection, ConnectionError, Host, Cache}
   alias Cassandra.Cluster.{Schema, Watcher}
 
   @defaults [
@@ -23,7 +23,7 @@ defmodule Cassandra.Cluster do
     timeout: 5000,
   ]
 
-  @valid_options Keyword.keys(@defaults) ++ [:retry]
+  @valid_options Keyword.keys(@defaults) ++ [:retry, :cache]
 
   ### Client API ###
 
@@ -102,9 +102,12 @@ defmodule Cassandra.Cluster do
 
     with {socket, supported, local_data} <- select_socket(options),
          {:ok, schema}                   <- Schema.Fetcher.fetch(local_data, socket, options[:fetcher]),
-         {:ok, watcher}                  <- Watcher.start_link(options)
+         {:ok, watcher}                  <- Watcher.start_link(options),
+         {:ok, cache}                    <- Keyword.fetch(options, :cache),
+         {:ok, cache}                    <- Cache.new(cache)
     do
       initial_state = %{
+        cache: cache,
         socket: socket,
         options: options,
         fetcher: options[:fetcher],
@@ -122,6 +125,7 @@ defmodule Cassandra.Cluster do
     else
       error = %ConnectionError{} -> {:stop, {:error, error}}
       error = {:error, _reason}  -> {:stop, error}
+      :error                     -> {:stop, :no_cache_name}
     end
   end
 

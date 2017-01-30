@@ -3,96 +3,94 @@ defmodule Cassandra.Session.Executor do
   @behaviour :poolboy_worker
 
   import Kernel, except: [send: 2]
-  alias Cassandra.{LoadBalancing, Statement}
+  alias Cassandra.{LoadBalancing, Statement, Cache}
+  alias CQL.Result.Prepared
 
   ### API ###
 
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args)
-  end
-
-  def prepare(executor, %Statement{} = statement) do
-    GenServer.call(executor, {:prepare, statement})
-  end
-
-  def execute(executor, %Statement{prepared: nil} = statement, values) do
-    GenServer.call(executor, {:prepare_and_execute, statement, values})
+  def start_link(cluster, options) do
+    with {:ok, balancer} <- Keyword.fetch(options, :balancer),
+         {:ok, connection_manager} <- Keyword.fetch(options, :connection_manager),
+         {:ok, cache} <- Keyword.fetch(options, :cache)
+    do
+      options = Keyword.drop(options, [:balancer, :connection_manager])
+      GenServer.start_link(__MODULE__, [cluster, balancer, connection_manager, cache, options])
+    else
+      :error -> {:error, :missing_param}
+    end
   end
 
   def execute(executor, %Statement{} = statement, values) do
     GenServer.call(executor, {:execute, statement, values})
   end
 
-  def execute(executor, query, options) do
-    statement = %Statement{query: query, params: options}
-    execute(executor, statement, Keyword.get(options,:values, []))
+  ### poolboy_worker callbacks ###
+
+  def start_link([cluster, options]) do
+    start_link(cluster, options)
   end
 
   ### GenServer Callbacks ###
 
   @doc false
-  def init([cluster, options]) do
-    with {:ok, balancer} <- Keyword.fetch(options, :balancer),
-         {:ok, connection_manager} <- Keyword.fetch(options, :connection_manager)
-    do
-      state = %{
-        options: Keyword.drop(options, [:balancer, :connection_manager]),
-        cluster: cluster,
-        balancer: balancer,
-        connection_manager: connection_manager,
-      }
+  def init([cluster, balancer, connection_manager, cache, options]) do
+    state = %{
+      cache: cache,
+      options: options,
+      cluster: cluster,
+      balancer: balancer,
+      connection_manager: connection_manager,
+    }
 
-      {:ok, state}
-    else
-      :error -> {:stop, :missing_param}
-    end
+    {:ok, state}
   end
-
-  @doc false
-  def handle_call({:prepare, statement}, _from, state) do
-    reply =
-      statement
-      |> plan_and_run(:prepare, state)
-
-    {:reply, reply, state}
-  end
-
 
   @doc false
   def handle_call({:execute, statement, values}, _from, state) do
     reply =
       statement
       |> Statement.put_values(values)
-      |> plan_and_run(:execute, state)
+      |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
+      |> run(state.options, state.cache)
 
     {:reply, reply, state}
   end
 
-  defp plan_and_run(%Statement{} = statement, action, state) do
-    statement
-    |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
-    |> run(action, state.options)
-  end
+  ### Helpers ###
 
-  defp run(%Statement{connections: []}, _, _options) do
-    Cassandra.Connection.Error.new("execute", "no connection")
-  end
+  defp prepare_on(ip, connection, statement, options, cache) do
+    prepare = fn ->
+      DBConnection.prepare(connection, statement, options)
+    end
 
-  defp run(%Statement{connections: [connection | connections]} = statement, :prepare, options) do
-    case DBConnection.prepare(connection, statement, options) do
-      {:ok, result}                          -> result
-      {:error, %CQL.Error{} = error}         -> error
-      {:error, %Cassandra.ConnectionError{}} ->
-        run(%Statement{statement | connections: connections}, :prepare, options)
+    with %Prepared{} = prepared <- Cache.put_new_lazy(cache, cache_key(statement, ip), prepare) do
+      Statement.put_prepared(statement, prepared)
     end
   end
 
-  defp run(%Statement{connections: [connection | connections]} = statement, :execute, options) do
-    case DBConnection.execute(connection, statement, statement.values, options) do
-      {:ok, result}                          -> result
-      {:error, %CQL.Error{} = error}         -> error
+  defp execute_on(connection, statement, options) do
+    DBConnection.execute(connection, statement, statement.values, options)
+  end
+
+  defp cache_key(%Statement{query: query, options: options}, ip) do
+    :erlang.phash2({query, options, ip})
+  end
+
+  defp run(%Statement{connections: []}, _options, _cache) do
+    Cassandra.ConnectionError.new("execute", "no connection")
+  end
+
+  defp run(%Statement{connections: [{ip, connection} | connections]} = statement, options, cache) do
+    result =
+      with %Statement{} = prepared <- prepare_on(ip, connection, statement, options, cache) do
+        execute_on(connection, prepared, options)
+      end
+
+    case result do
+      {:ok, result} -> result
+      {:error, %CQL.Error{} = error} -> error
       {:error, %Cassandra.ConnectionError{}} ->
-        run(%Statement{statement | connections: connections}, :execute, options)
+        run(%Statement{statement | connections: connections}, options, cache)
     end
   end
 end

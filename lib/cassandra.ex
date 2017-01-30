@@ -23,10 +23,10 @@ defmodule Cassandra do
     quote do
       use Supervisor
 
-      @cluster __MODULE__.Cluster
-      @session __MODULE__.Session
-      @schema __MODULE__.Cluster.Schema
-      @task_supervisor __MODULE__.Task.Supervisor
+      @cluster            __MODULE__.Cassandra.Cluster
+      @session            __MODULE__.Cassandra.Session
+      @cache              __MODULE__.Cassandra.Session.Cache
+      @connection_manager __MODULE__.Cassandra.Session.ConnectionManager
 
       def start_link(options \\ []) do
         Supervisor.start_link(__MODULE__, options)
@@ -45,25 +45,23 @@ defmodule Cassandra do
           options
           |> Keyword.merge(config)
           |> Keyword.merge([
-               schema_name: @schema,
-               task_supervisor: @task_supervisor,
+               cluster: @cluster,
+               session: @session,
+               cache: @cache,
+               connection_manager: @connection_manager,
              ])
 
         children = [
-          worker(Cluster, [Keyword.put(options, :name, @cluster)]),
-          supervisor(Session, [@schema, @session, options]),
+          worker(Cluster, [options]),
+          supervisor(Session, [@cluster, options]),
         ]
 
         supervise(children, strategy: :rest_for_one)
       end
 
-
-      def execute(statement) do
-        :poolboy.transaction @session, fn session ->
-          Session.execute(session, statement)
-        end
+      def execute(statement, values \\ []) do
+        Session.execute(@session, statement, values)
       end
-
     end
   end
 end

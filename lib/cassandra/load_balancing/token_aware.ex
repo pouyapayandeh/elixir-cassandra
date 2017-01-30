@@ -28,8 +28,6 @@ defmodule Cassandra.LoadBalancing.TokenAware do
             |> ConnectionManager.connections(replicas)
             |> LoadBalancing.take(balancer.wrapped.max_tries)
 
-          IO.inspect {replicas, connections}
-
           %Statement{statement | connections: connections}
       end
     end

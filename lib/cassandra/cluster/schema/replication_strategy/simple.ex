@@ -15,6 +15,7 @@ defmodule Cassandra.Cluster.Schema.ReplicationStrategy.Simple do
            token_ring
            |> Stream.cycle
            |> Stream.drop(i)
+           |> Stream.take(size)
            |> Stream.map(fn {_, host} -> host end)
            |> Stream.uniq
            |> Enum.take(factor)
