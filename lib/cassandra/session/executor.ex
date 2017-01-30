@@ -87,8 +87,16 @@ defmodule Cassandra.Session.Executor do
       end
 
     case result do
-      {:ok, result} -> result
-      {:error, %CQL.Error{} = error} -> error
+      {:ok, result} ->
+        result
+
+      {:error, %CQL.Error{code: :unprepared}} ->
+        Cache.delete(cache, cache_key(statement, ip))
+        run(statement, options, cache)
+
+      {:error, %CQL.Error{} = error} ->
+        error
+
       {:error, %Cassandra.ConnectionError{}} ->
         run(%Statement{statement | connections: connections}, options, cache)
     end

@@ -35,4 +35,8 @@ defmodule Cassandra.Cache do
     :ets.insert(cache, {key, value})
     value
   end
+
+  def delete(cache, key) do
+    :ets.delete(cache, key)
+  end
 end
