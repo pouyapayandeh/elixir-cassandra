@@ -65,8 +65,18 @@ defmodule Cassandra.Cluster do
     GenServer.start_link(__MODULE__, options, server_options)
   end
 
+  @doc """
+  Returns replications containing `partition_key` of `keyspace`
+  """
   def find_replicas(cluster, keyspace, partition_key) do
     GenServer.call(cluster, {:find_replicas, keyspace, partition_key})
+  end
+
+  @doc """
+  Returns list of `cluster`s `Cassandra.Host`s
+  """
+  def hosts(cluster) do
+    GenServer.call(cluster, :hosts)
   end
 
   @doc """
@@ -83,10 +93,12 @@ defmodule Cassandra.Cluster do
     GenServer.call(cluster, {:host, ips})
   end
 
+  @doc false
   def register(cluster) do
     register(cluster, self())
   end
 
+  @doc false
   def register(cluster, pid) do
     GenServer.call(cluster, {:register, pid})
   end
@@ -102,10 +114,14 @@ defmodule Cassandra.Cluster do
 
     with {socket, supported, local_data} <- select_socket(options),
          {:ok, schema}                   <- Schema.Fetcher.fetch(local_data, socket, options[:fetcher]),
-         {:ok, watcher}                  <- Watcher.start_link(options),
-         {:ok, cache}                    <- Keyword.fetch(options, :cache),
-         {:ok, cache}                    <- Cache.new(cache)
+         {:ok, watcher}                  <- Watcher.start_link(options)
     do
+      cache =
+        case Cache.new(Keyword.get(options, :cache, nil)) do
+          {:ok, name} -> name
+          :error      -> nil
+        end
+
       initial_state = %{
         cache: cache,
         socket: socket,
@@ -123,14 +139,22 @@ defmodule Cassandra.Cluster do
 
       {:ok, state}
     else
-      error = %ConnectionError{} -> {:stop, {:error, error}}
+      error = %ConnectionError{} -> {:stop, error}
       error = {:error, _reason}  -> {:stop, error}
       :error                     -> {:stop, :no_cache_name}
     end
   end
 
+  @doc false
   def handle_call(:schema, _from, state) do
     {:reply, state, state}
+  end
+
+  @doc false
+  def handle_call(:hosts, _from, state) do
+    hosts = Map.values(state.hosts)
+
+    {:reply, hosts, state}
   end
 
   @doc false
@@ -164,6 +188,7 @@ defmodule Cassandra.Cluster do
     {:reply, hosts, state}
   end
 
+  @doc false
   def handle_call({:register, pid}, _from, state) do
     if Process.alive?(pid) and not pid in state.listeners do
       Process.monitor(pid)
@@ -173,6 +198,7 @@ defmodule Cassandra.Cluster do
     end
   end
 
+  @doc false
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     {:noreply, Map.update(state, :listeners, [], &List.delete(&1, pid))}
   end
