@@ -13,7 +13,7 @@ defmodule Cassandra.Statement do
     :connections,
   ]
 
-  def new(query, options) do
+  def new(query, options \\ []) do
     %__MODULE__{
       query: query,
       options: Keyword.delete(options, :values),
