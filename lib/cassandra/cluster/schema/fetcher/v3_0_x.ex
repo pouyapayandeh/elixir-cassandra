@@ -11,10 +11,6 @@ defmodule Cassandra.Cluster.Schema.Fetcher.V3_0_x do
     CQL.encode!(%CQL.Query{query: "SELECT * FROM system.peers WHERE peer='#{ip_to_string(ip)}';"})
   end
 
-  def select_schema(name) do
-    CQL.encode!(%CQL.Query{query: "SELECT * FROM system_schema.#{name};"})
-  end
-
   def select_keyspace(name) do
     CQL.encode!(%CQL.Query{query: "SELECT * FROM system_schema.keyspaces WHERE keyspace_name='#{name}';"})
   end
@@ -23,6 +19,10 @@ defmodule Cassandra.Cluster.Schema.Fetcher.V3_0_x do
   def select_tables,    do: select_schema("tables")
   def select_columns,   do: select_schema("columns")
   def select_indexes,   do: select_schema("indexes")
+
+  defp select_schema(name) do
+    CQL.encode!(%CQL.Query{query: "SELECT * FROM system_schema.#{name};"})
+  end
 
   defp ip_to_string({_, _, _, _} = ip) do
     ip

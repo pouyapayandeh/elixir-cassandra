@@ -2,12 +2,18 @@ defmodule Cassandra.Cluster.Schema.Fetcher do
   alias Cassandra.{Connection, Host, Keyspace}
   alias Cassandra.Cluster.Schema
 
-  @type cql :: String.t
+  @type cql           :: binary
+  @type ip            :: :inet.ip_address
+  @type keyspace_name :: String.t
 
-  @callback select_keyspaces() :: cql
-  @callback select_tables() :: cql
-  @callback select_columns() :: cql
-  @callback select_indexes() :: cql
+  @callback select_local()                 :: cql
+  @callback select_peers()                 :: cql
+  @callback select_peer(ip)                :: cql
+  @callback select_keyspace(keyspace_name) :: cql
+  @callback select_keyspaces()             :: cql
+  @callback select_tables()                :: cql
+  @callback select_columns()               :: cql
+  @callback select_indexes()               :: cql
 
   def fetch(local_data, connection, version \\ Schema.Fetcher.V3_0_x) do
     data_center = Map.get(local_data, "data_center")
