@@ -146,11 +146,6 @@ defmodule Cassandra.Cluster do
   end
 
   @doc false
-  def handle_call(:schema, _from, state) do
-    {:reply, state, state}
-  end
-
-  @doc false
   def handle_call(:hosts, _from, state) do
     hosts = Map.values(state.hosts)
 
@@ -165,6 +160,16 @@ defmodule Cassandra.Cluster do
       |> Enum.filter(&Host.up?/1)
 
     {:reply, up_hosts, state}
+  end
+
+  @doc false
+  def handle_call({:host, ips}, _from, state) when is_list(ips) do
+    hosts =
+      state.hosts
+      |> Map.take(ips)
+      |> Map.values
+
+    {:reply, hosts, state}
   end
 
   @doc false

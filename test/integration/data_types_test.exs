@@ -1,61 +1,37 @@
 defmodule Cassandra.Integration.DataTypesTest do
-  use ExUnit.Case
-
-  alias Cassandra.Connection
-
-  @host     Cassandra.TestHelper.host
-  @keyspace Cassandra.TestHelper.keyspace
-
-  @truncate_table %CQL.Query{
-    query: "TRUNCATE data_types;"
-  }
-
-  @create_table %CQL.Query{
-    query: """
-      CREATE TABLE data_types (
-        f_ascii     ascii,
-        f_bigint    bigint,
-        f_blob      blob,
-        f_boolean   boolean,
-        f_date      date,
-        f_decimal   decimal,
-        f_double    double,
-        f_float     float,
-        f_inet      inet,
-        f_int       int,
-        f_smallint  smallint,
-        f_text      text,
-        f_time      time,
-        f_timestamp timestamp,
-        f_timeuuid  timeuuid,
-        f_tinyint   tinyint,
-        f_uuid      uuid,
-        f_varchar   varchar,
-        f_varint    varint,
-        f_map1      map<text, text>,
-        f_map2      map<int, boolean>,
-        f_list1     list<text>,
-        f_list2     list<int>,
-        f_set       set<int>,
-        PRIMARY KEY (f_timeuuid, f_timestamp, f_uuid)
-      );
+  use Cassandra.SessionCase,
+    table: "data_types_test",
+    create: """
+      f_ascii     ascii,
+      f_bigint    bigint,
+      f_blob      blob,
+      f_boolean   boolean,
+      f_date      date,
+      f_decimal   decimal,
+      f_double    double,
+      f_float     float,
+      f_inet      inet,
+      f_int       int,
+      f_smallint  smallint,
+      f_text      text,
+      f_time      time,
+      f_timestamp timestamp,
+      f_timeuuid  timeuuid,
+      f_tinyint   tinyint,
+      f_uuid      uuid,
+      f_varchar   varchar,
+      f_varint    varint,
+      f_map1      map<text, text>,
+      f_map2      map<int, boolean>,
+      f_list1     list<text>,
+      f_list2     list<int>,
+      f_set       set<int>,
+      PRIMARY KEY (f_timeuuid, f_timestamp, f_uuid)
     """
-  }
 
-  setup_all do
-    {:ok, conn} = Connection.start_link(host: @host, async_init: false, keyspace: @keyspace)
-    {:ok, _} = Connection.send(conn, @create_table)
-    {:ok, %{conn: conn}}
-  end
-
-  setup %{conn: conn} do
-    {:ok, :done} = Connection.send(conn, @truncate_table)
-    :ok
-  end
-
-  test "DATA TYPES", %{conn: conn} do
-    {:ok, prepared} = Connection.send(conn, %CQL.Prepare{query: """
-      INSERT INTO data_types (
+  test "DATA TYPES", %{session: session} do
+    query = """
+      INSERT INTO #{@table} (
         f_ascii,
         f_bigint,
         f_blob,
@@ -107,7 +83,6 @@ defmodule Cassandra.Integration.DataTypesTest do
         :f_set
       );
     """
-    })
     data = %{
       f_ascii: "abcdefgh",
       f_bigint: 1000000000,
@@ -135,9 +110,8 @@ defmodule Cassandra.Integration.DataTypesTest do
       f_set: MapSet.new([10, 20, 10, 20, 30]),
     }
 
-    assert {:ok, :done} = Connection.send(conn, %CQL.Execute{prepared: prepared, params: %CQL.QueryParams{values: data}})
-
-    assert {:ok, rows} = Connection.send(conn, %CQL.Query{query: "SELECT * FROM data_types LIMIT 1;"})
+    assert %CQL.Result.Void{} = Session.execute(session, query, values: data)
+    assert %CQL.Result.Rows{} = rows = Session.execute(session, "SELECT * FROM #{@table} LIMIT 1;")
 
     [result] = CQL.Result.Rows.to_map(rows)
 

@@ -18,6 +18,12 @@ defmodule Cassandra.ClusterTest do
     end
   end
 
+  test "#host", %{cluster: cluster} do
+    assert [host = %Host{ip: ip} | _] = Cluster.hosts(cluster)
+    assert ^host = Cluster.host(cluster, ip)
+    assert [^host] = Cluster.host(cluster, [ip])
+  end
+
   test "#hosts", %{cluster: cluster} do
     assert Enum.all?(Cluster.hosts(cluster), &match?(%Host{}, &1))
   end

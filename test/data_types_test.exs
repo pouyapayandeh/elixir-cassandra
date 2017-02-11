@@ -174,7 +174,8 @@ defmodule CQL.DataTypesTest do
       assert uuid == uuid |> encode(:uuid) |> drop_size |> decode(:uuid)
     end
 
-    assert :error == encode("bad id", :uuid)
+    assert %CQL.Error{code: :invalid, info: info} = encode("bad id", :uuid)
+    assert info =~ "Expected a 'uuid'"
   end
 
   defp drop_size(<<_::integer-32, rest::bytes>>), do: rest

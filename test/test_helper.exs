@@ -3,6 +3,42 @@ Logger.configure(level: :info)
 
 # Code.require_file("support/cluster_manager.exs", __DIR__)
 
+defmodule Cassandra.SessionCase do
+  defmacro __using__(options) do
+    quote bind_quoted: [options: options] do
+      use ExUnit.Case
+
+      alias Cassandra.{Cluster, Session, Statement}
+
+      @host Cassandra.TestHelper.host
+      @keyspace Cassandra.TestHelper.keyspace
+      @table "#{@keyspace}.#{options[:table]}"
+      @create_table "CREATE TABLE #{@table} (#{options[:create]});"
+      @truncate_table "TRUNCATE #{@table};"
+
+      setup_all do
+        session = __MODULE__.Session
+        options = [
+          contact_points: [@host],
+          session: session,
+          cache: __MODULE__.Cache,
+        ]
+        {:ok, cluster} = Cluster.start_link(options)
+        {:ok, _} = Session.start_link(cluster, options)
+
+        %CQL.Result.SchemaChange{} = Session.execute(session, @create_table)
+
+        {:ok, %{session: session}}
+      end
+
+      setup %{session: session} do
+        %CQL.Result.Void{} = Session.execute(session, @truncate_table)
+        {:ok, %{session: session}}
+      end
+    end
+  end
+end
+
 defmodule Cassandra.TestHelper do
   alias Cassandra.Connection
 

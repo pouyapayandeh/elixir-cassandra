@@ -2,7 +2,6 @@ defmodule Cassandra.Session.Executor do
   use GenServer
   @behaviour :poolboy_worker
 
-  import Kernel, except: [send: 2]
   alias Cassandra.{LoadBalancing, Statement, Cache}
   alias CQL.Result.Prepared
 

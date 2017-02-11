@@ -30,7 +30,7 @@ defmodule Cassandra.Session do
   end
 
   def execute(pool, query, options) do
-    execute(pool, Statement.new(query, options), Keyword.get(options,:values, []))
+    execute(pool, Statement.new(query, options), Keyword.get(options, :values, []))
   end
 
   def init([cluster, options]) do

@@ -1,45 +1,19 @@
 defmodule Cassandra.SessionTest do
-  use ExUnit.Case
-
-  alias Cassandra.{Cluster, Session}
-
-  @moduletag capture_log: true
-
-  @host Cassandra.TestHelper.host
-  @keyspace Cassandra.TestHelper.keyspace
-  @table_name "people"
-
-  @truncate_table "TRUNCATE #{@table_name};"
-
-  @create_table """
-    CREATE TABLE #{@table_name} (
+  use Cassandra.SessionCase,
+    table: "people",
+    create: """
       id uuid,
       name varchar,
       age int,
       PRIMARY KEY (id)
-    );
-  """
+    """
 
-  setup_all do
-    {:ok, cluster} = Cluster.start_link([@host])
-    {:ok, session} = Session.start_link(cluster, [keyspace: @keyspace])
-    %{result: {:ok, _}} = Session.execute(session, @create_table)
-
-    {:ok, %{session: session}}
-  end
-
-  setup %{session: session} do
-    %{result: {:ok, :done}} = Session.execute(session, @truncate_table)
-    :ok
-  end
+  @moduletag capture_log: true
 
   test "execute", %{session: session} do
-    %{result: {:ok, %CQL.Result.Rows{}}} = Session.execute(session, "SELECT * FROM system_schema.tables")
-  end
+    assert %CQL.Result.Rows{} = Session.execute(session, "SELECT * FROM system_schema.tables")
 
-  test "prepare", %{session: session} do
-    insert = "INSERT INTO people (id, name, age) VALUES (now(), :name, :age);"
-    assert %{result: {:ok, ^insert}} = Session.prepare(session, insert)
+    insert = Statement.new("INSERT INTO #{@table} (id, name, age) VALUES (now(), :name, :age);")
 
     characters = [
       %{name: "Bilbo", age: 50},
@@ -48,38 +22,33 @@ defmodule Cassandra.SessionTest do
     ]
 
     assert characters
-      |> Enum.map(&Session.execute(session, insert, values: &1))
-      |> Enum.map(&match?(%{result: {:ok, _}}, &1))
-      |> Enum.all?
+      |> Enum.map(&Session.execute(session, insert, &1))
+      |> Enum.all?(&match?(%CQL.Result.Void{}, &1))
 
-    assert %{result: {:ok, rows}} = Session.execute(session, "SELECT name, age FROM people;")
-    assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} = rows
+    assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} =
+      rows = Session.execute(session, "SELECT name, age FROM #{@table};")
 
     for char <- characters do
       assert !is_nil(Enum.find(rows.rows, fn [name, age] -> name == char[:name] and age == char[:age] end))
     end
   end
 
-  test "batch", %{session: session} do
-    insert = "INSERT INTO people (id, name, age) VALUES (now(), ?, ?);"
+  # test "batch", %{session: session} do
+  #   insert = "INSERT INTO people (id, name, age) VALUES (now(), ?, ?);"
 
-    characters = [
-      ["Bilbo", 50],
-      ["Frodo", 33],
-      ["Gandolf", 2019],
-    ]
+  #   characters = [
+  #     ["Bilbo", 50],
+  #     ["Frodo", 33],
+  #     ["Gandolf", 2019],
+  #   ]
 
-    assert %{result: {:ok, :done}} = Session.execute(session, {insert, characters})
+  #   assert %CQL.Result.Void{} = Session.execute(session, insert, cache)
 
-    assert %{result: {:ok, rows}} = Session.execute(session, "SELECT name, age FROM people;")
-    assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} = rows
+  #   assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} =
+  #     rows = Session.execute(session, "SELECT name, age FROM #{@keyspace}.people;")
 
-    for [name, age] <- characters do
-      assert !is_nil(Enum.find(rows.rows, &(&1 == [name, age])))
-    end
-  end
-
-  test "send", %{session: session} do
-    assert %{result: {:ok, %CQL.Supported{}}} = Session.send(session, %CQL.Options{})
-  end
+  #   for [name, age] <- characters do
+  #     assert !is_nil(Enum.find(rows.rows, &(&1 == [name, age])))
+  #   end
+  # end
 end
