@@ -17,6 +17,9 @@ defmodule Cassandra do
   ```
   """
 
+  use Application
+  use Supervisor
+
   alias Cassandra.{Cluster, Session}
 
   defmacro __using__(opts \\ []) do
@@ -63,5 +66,21 @@ defmodule Cassandra do
         Session.execute(@session, statement, values)
       end
     end
+  end
+
+  ### Application Callbacks ###
+
+  def start(_type, options) do
+    Supervisor.start_link(__MODULE__, options)
+  end
+
+  ### Supervisor Callbacks ###
+
+  def init(_options) do
+    children = [
+      worker(Cassandra.UUID, []),
+    ]
+
+    supervise(children, strategy: :one_for_one)
   end
 end

@@ -24,6 +24,7 @@ defmodule Cassandra.Mixfile do
   ]
 
   def application, do: [
+    mod: {Cassandra, []},
     applications: [:logger, :db_connection],
   ]
 
