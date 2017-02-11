@@ -65,9 +65,15 @@ defmodule CQL.DataTypesTest do
     assert time == time |> encode(:time) |> drop_size |> decode(:time)
   end
 
-  test "timestamp" do
+  test "timestamp with naive time" do
     time = ~N[2016-02-03 04:05:06.007]
     assert time == time |> encode(:timestamp) |> drop_size |> decode(:timestamp)
+  end
+
+  test "timestamp with DateTime" do
+    naive = ~N[2017-02-11 13:43:33.745]
+    assert {:ok, time} = DateTime.from_naive(naive, "Etc/UTC")
+    assert naive == time |> encode(:timestamp) |> drop_size |> decode(:timestamp)
   end
 
   test "decimal" do
