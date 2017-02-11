@@ -20,7 +20,5 @@ defmodule CQL.Register do
         {:REGISTER, body}
       end
     end
-
-    def encode(_), do: CQL.Error.new("invalid request")
   end
 end

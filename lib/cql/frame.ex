@@ -55,7 +55,7 @@ defmodule CQL.Frame do
   end
 
   def body_length(<<_::40, length::integer-32>>), do: {:ok, length}
-  def body_length(_), do: CQL.Error.new("invalid body length")
+  def body_length(_), do: CQL.Error.new("invalid frame header")
 
   def is_error?(<<_::32, 0::integer-8, _::binary>>), do: true
   def is_error?(_), do: false
@@ -75,7 +75,7 @@ defmodule CQL.Frame do
       length: length,
     }}
   end
-  def decode_header(_), do: CQL.Error.new("invalid header")
+  def decode_header(_), do: CQL.Error.new("invalid frame header")
 
   def decode(<<
       version::integer-8,

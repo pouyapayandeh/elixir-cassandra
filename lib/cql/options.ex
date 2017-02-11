@@ -9,7 +9,5 @@ defmodule CQL.Options do
     def encode(%CQL.Options{}) do
       {:OPTIONS, ""}
     end
-
-    def encode(_), do: :error
   end
 end

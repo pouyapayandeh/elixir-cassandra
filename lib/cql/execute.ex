@@ -14,14 +14,14 @@ defmodule CQL.Execute do
   ]
 
   defimpl Request do
-    def encode(%CQL.Execute{prepared: %Prepared{id: id} = prepared, params: %QueryParams{} = params}) do
-      with {:ok, zipped} <- ok(zip(prepared.metadata.column_types, params.values)),
+    def encode(%CQL.Execute{prepared: %Prepared{id: id, metadata: %{column_types: column_types}} = prepared, params: %QueryParams{} = params}) do
+      with {:ok, zipped} <- ok(zip(column_types, params.values)),
            {:ok, encoded_params} <- ok(QueryParams.encode(%{params | values: zipped}))
       do
         {:EXECUTE, short_bytes(id) <> encoded_params}
       end
     end
 
-    def encode(_), do: CQL.Error.new("invalid request")
+    def encode(_), do: CQL.Error.new("invalid execute request")
   end
 end

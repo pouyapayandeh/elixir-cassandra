@@ -13,7 +13,5 @@ defmodule CQL.Startup do
         {:STARTUP, body}
       end
     end
-
-    def encode(_), do: CQL.Error.new("invalid request")
   end
 end

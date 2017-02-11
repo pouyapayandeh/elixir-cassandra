@@ -15,7 +15,5 @@ defmodule CQL.Prepare do
         {:PREPARE, body}
       end
     end
-
-    def encode(_), do: CQL.Error.new("invalid request")
   end
 end

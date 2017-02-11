@@ -21,6 +21,6 @@ defmodule CQL.Query do
       end
     end
 
-    def encode(_), do: CQL.Error.new("invalid request")
+    def encode(_), do: CQL.Error.new("invalid query request")
   end
 end
