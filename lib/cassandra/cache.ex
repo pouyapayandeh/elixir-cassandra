@@ -1,4 +1,6 @@
 defmodule Cassandra.Cache do
+  @moduledoc false
+
   def new(nil), do: :error
   def new(name) do
     options = [
@@ -13,14 +15,21 @@ defmodule Cassandra.Cache do
     end
   end
 
+  def put(cache, key, value) do
+    true = :ets.insert(cache, {key, value})
+    value
+  end
+
   def put_new_lazy(cache, key, func) do
     with :error <- fetch(cache, key),
          {:ok, value} <- func.()
     do
       put(cache, key, value)
     else
-      {:ok, value} -> value
-      error        -> error
+      {:ok, value}     -> value
+      :error           -> :error
+      {:error, reason} -> {:error, reason}
+      error            -> {:error, error}
     end
   end
 
@@ -31,12 +40,8 @@ defmodule Cassandra.Cache do
     end
   end
 
-  def put(cache, key, value) do
-    :ets.insert(cache, {key, value})
-    value
-  end
-
   def delete(cache, key) do
-    :ets.delete(cache, key)
+    true = :ets.delete(cache, key)
+    :ok
   end
 end
