@@ -38,10 +38,8 @@ defmodule Cassandra do
       def init(options) do
         opts = unquote(opts)
         config = case Keyword.fetch(opts, :otp_app) do
-          {:ok, app} ->
-            Application.get_env(app, __MODULE__, [])
-          :error ->
-            opts
+          {:ok, app} -> Application.get_env(app, __MODULE__, [])
+          :error     -> opts
         end
 
         options =

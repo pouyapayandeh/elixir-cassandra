@@ -8,7 +8,7 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
   * `:max_tries` - number of connections to try before on request fail (default: `3`)
   """
 
-  defstruct [num_connections: 1, max_tries: 3]
+  defstruct [num_connections: 10, max_tries: 3]
 
   defimpl Cassandra.LoadBalancing.Policy do
     alias Cassandra.LoadBalancing

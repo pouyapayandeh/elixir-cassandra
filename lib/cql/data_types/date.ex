@@ -13,9 +13,13 @@ defmodule CQL.DataTypes.Date do
   end
 
   def encode(%Date{} = date), do: date |> Date.to_erl |> encode
-  def encode(date) do
+  def encode({_, _, _} = date) do
     days = :calendar.date_to_gregorian_days(date)
     n = days - @epoch
     <<n::integer-32>>
+  end
+
+  def encode(value) do
+    CQL.DataTypes.Encoder.invalid(:date, value)
   end
 end

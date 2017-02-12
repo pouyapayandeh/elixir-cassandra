@@ -218,6 +218,8 @@ defmodule CQL.DataTypes.Encoder do
 
   def zip(_, values) when is_nil(values), do: nil
 
+  def zip(_, values), do: CQL.Error.new("invalid values", "Expected a list or a map for values found: #{inspect values}")
+
   def values(list) when is_list(list) do
     parts = Enum.map(list, &CQL.DataTypes.encode/1)
 
@@ -226,7 +228,7 @@ defmodule CQL.DataTypes.Encoder do
         parts
         |> Stream.filter(&match?(%CQL.Error{}, &1))
         |> Enum.take(1)
-      
+
       error
     else
       n = Enum.count(list)
@@ -244,7 +246,7 @@ defmodule CQL.DataTypes.Encoder do
         parts
         |> Stream.filter(&match?(%CQL.Error{}, &1))
         |> Enum.take(1)
-      
+
       error
     else
       n = Enum.count(map)

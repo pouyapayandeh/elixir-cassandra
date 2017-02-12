@@ -29,4 +29,8 @@ defmodule CQL.DataTypes.Timestamp do
     n = (seconds - @epoch) * 1000 + milliseconds
     <<n::integer-64>>
   end
+
+  def encode(value) do
+    CQL.DataTypes.Encoder.invalid(:timestamp, value)
+  end
 end

@@ -23,4 +23,8 @@ defmodule CQL.DataTypes.Time do
     nano = micro * 1000
     <<nano::integer-64>>
   end
+
+  def encode(value) do
+    CQL.DataTypes.Encoder.invalid(:time, value)
+  end
 end

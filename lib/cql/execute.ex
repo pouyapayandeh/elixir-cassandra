@@ -14,7 +14,7 @@ defmodule CQL.Execute do
   ]
 
   defimpl Request do
-    def encode(%CQL.Execute{prepared: %Prepared{id: id, metadata: %{column_types: column_types}} = prepared, params: %QueryParams{} = params}) do
+    def encode(%CQL.Execute{prepared: %Prepared{id: id, metadata: %{column_types: column_types}}, params: %QueryParams{} = params}) do
       with {:ok, zipped} <- ok(zip(column_types, params.values)),
            {:ok, encoded_params} <- ok(QueryParams.encode(%{params | values: zipped}))
       do

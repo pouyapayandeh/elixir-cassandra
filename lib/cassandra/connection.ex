@@ -20,6 +20,16 @@ defmodule Cassandra.Connection do
 
   ### API ###
 
+  def run_query(host, query, options \\ []) do
+    with {:ok, request} <- CQL.encode(%CQL.Query{query: query, params: CQL.QueryParams.new(options)}),
+         {:ok, %{socket: socket}} = connect(host: host)
+    do
+      result = query(socket, request)
+      :gen_tcp.close(socket)
+      result
+    end
+  end
+
   def query(socket, request, timeout \\ @defaults[:timeout]) do
     with :ok <- tcp_send(socket, request),
          {:ok, result} <- receive_response(socket, timeout)
@@ -88,20 +98,9 @@ defmodule Cassandra.Connection do
     :gen_tcp.close(socket)
   end
 
-  def handle_begin(_options, state) do
-    {:error, ConnectionError.new("transaction", "not supported"), state}
-  end
-
   def handle_close(statement, _options, state) do
     {:ok, statement, state}
   end
-
-  def handle_commit(_options, state) do
-    {:error, ConnectionError.new("transaction", "not supported"), state}
-  end
-
-  # def handle_deallocate(query, cursor, opts, state)
-  # def handle_declare(query, params, opts, state) do
 
   def handle_execute(_statement, %CQL.Error{} = error, _options, state) do
     {:error, error, state}
@@ -115,10 +114,6 @@ defmodule Cassandra.Connection do
     end
   end
 
-  # def handle_first(query, cursor, opts, state)
-  # def handle_info(msg, state)
-  # def handle_next(query, cursor, opts, state)
-
   def handle_prepare(%CQL.Error{} = error, _options, state) do
     {:error, error, state}
   end
@@ -129,10 +124,6 @@ defmodule Cassandra.Connection do
     else
       error -> {:error, error, state}
     end
-  end
-
-  def handle_rollback(_options, state) do
-    {:error, ConnectionError.new("transaction", "not supported"), state}
   end
 
   def ping(%{socket: socket, timeout: timeout} = state) do
