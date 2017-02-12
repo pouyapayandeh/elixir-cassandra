@@ -12,16 +12,17 @@ This driver works with Cassandra Query Language version 3 (CQL3) and Cassandra's
 ## Features
 
 * Automatic peer discovery
-* Configurable load-balancing/retry/reconnection policies
-* Ecto like Repo supervisor
+* Automatic connection managment (reconnect on connection loss and discover new nodes)
+* Configurable load-balancing/reconnection policies
 * Asynchronous execution through Tasks
 * Prepared statements with named and position based values
-* Batch statement
+* Token based load-balancing policy
+* Automatic prepare and cache prepared statements per host
 
 ## Todo
 
-* [ ] Token based load-balancing policy
 * [ ] Compression
+* [ ] Batch statement
 * [ ] Authentication and SSL encryption
 * [ ] User Defined Types
 * [ ] Use prepared `result_metadata` optimization
@@ -32,7 +33,7 @@ Add `cassandra` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:cassandra, "~> 1.0.0-beta.1"}]
+  [{:cassandra, "~> 1.0.0-beta.3"}]
 end
 ```
 
@@ -47,12 +48,12 @@ end
 # uses "127.0.0.1:9042" as contact point by default
 # discovers other nodes on first connection
 
-{:ok, _} = Repo.execute """
+Repo.execute """
   CREATE KEYSPACE IF NOT EXISTS test
     WITH replication = {'class':'SimpleStrategy','replication_factor':1};
   """, consistency: :all
 
-{:ok, _} = Repo.execute """
+Repo.execute """
   CREATE TABLE IF NOT EXISTS test.users (
     id timeuuid,
     name varchar,
@@ -61,9 +62,7 @@ end
   );
   """, consistency: :all
 
-{:ok, insert} = Repo.prepare """
-  INSERT INTO test.users (id, name, age) VALUES (now(), ?, ?);
-  """
+insert = "INSERT INTO test.users (id, name, age) VALUES (?, ?, ?);"
 
 users = [
   %{name: "Bilbo", age: 50},
@@ -72,21 +71,19 @@ users = [
 ]
 
 users
-|> Enum.map(&Task.async(fn -> Repo.execute(insert, values: &1, consistency: :all) end))
-|> Enum.map(&Task.await/1)
-|> Enum.each(&IO.inspect(&1))
+|> Task.async_stream(&Repo.execute(insert, values: [Cassandra.UUID.v1, &1.name, &1.age]))
+|> Enum.to_list
 
-{:ok, rows} = Repo.execute("SELECT * FROM test.users;", consistency: :all)
+Repo.execute("SELECT * FROM test.users;")
 
-# {:ok,
-#  %CQL.Result.Rows{
+# %CQL.Result.Rows{
 #   columns: ["id", "age", "name"],
 #   rows_count: 3,
 #   rows: [
-#    ["831e5df2-a0e1-11e6-b9af-6d2c86545d91", 2019, "Gandolf"],
-#    ["831e5df1-a0e1-11e6-b9af-6d2c86545d91", 33, "Frodo"],
-#    ["831e5df0-a0e1-11e6-b9af-6d2c86545d91", 50, "Bilbo"]
+#     ["831e5df2-a0e1-11e6-b9af-6d2c86545d91", 2019, "Gandolf"],
+#     ["831e5df1-a0e1-11e6-b9af-6d2c86545d91", 33, "Frodo"],
+#     ["831e5df0-a0e1-11e6-b9af-6d2c86545d91", 50, "Bilbo"]
 #   ]
-# }}
+# }
 ```
 

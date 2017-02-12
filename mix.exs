@@ -40,7 +40,7 @@ defmodule Cassandra.Mixfile do
     {:ex_doc, "~> 0.14", only: :dev},
   ]
 
-  defp version, do: "1.0.0-beta.2"
+  defp version, do: "1.0.0-beta.3"
 
   defp docs, do: [
     main: "readme",
