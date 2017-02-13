@@ -59,7 +59,7 @@ defmodule Cassandra.Session.Executor do
 
   defp prepare_on(ip, connection, statement, options, cache) do
     prepare = fn ->
-      DBConnection.prepare(connection, statement, options)
+      DBConnection.prepare(connection, statement, Keyword.put(options, :for_cache, true))
     end
 
     with %Prepared{} = prepared <- Cache.put_new_lazy(cache, cache_key(statement, ip), prepare) do

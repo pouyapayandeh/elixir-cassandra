@@ -76,9 +76,13 @@ defmodule Cassandra.Statement do
       end
     end
 
-    def describe(statement, _options) do
+    def describe(statement, options) do
       with {:ok, %CQL.Frame{body: %CQL.Result.Prepared{} = prepared}} <- CQL.decode(statement.response) do
-        prepared
+        if options[:for_cache] do
+          prepared
+        else
+          Statement.put_prepared(statement, prepared)
+        end
       end
     end
 
