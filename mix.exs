@@ -54,6 +54,6 @@ defmodule Cassandra.Mixfile do
       "Github" => "https://github.com/cafebazaar/elixir-cassandra",
       "Docs" => "https://hexdocs.pm/cassandra/#{version()}/",
     },
-    files: ~w(mix.exs lib native README.md LICENSE.md),
+    files: ~w(mix.exs lib native Makefile README.md LICENSE.md),
   ]
 end
