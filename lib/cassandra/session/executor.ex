@@ -20,7 +20,8 @@ defmodule Cassandra.Session.Executor do
   end
 
   def execute(executor, %Statement{} = statement, values) do
-    GenServer.call(executor, {:execute, statement, values})
+    timeout = Keyword.get(statement.options, :timeout, :infinity)
+    GenServer.call(executor, {:execute, statement, values}, timeout)
   end
 
   ### poolboy_worker callbacks ###
