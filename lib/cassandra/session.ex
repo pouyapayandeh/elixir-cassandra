@@ -35,7 +35,7 @@ defmodule Cassandra.Session do
 
   def init([cluster, options]) do
     {balancer_policy, balancer_args} = Keyword.get(options, :balancer, @default_balancer)
-    balancer = struct(balancer_policy, balancer_args)
+    balancer = balancer_policy.new(balancer_args)
 
     options =
       @defaults

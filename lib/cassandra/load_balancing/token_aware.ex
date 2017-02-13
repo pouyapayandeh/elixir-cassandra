@@ -12,6 +12,12 @@ defmodule Cassandra.LoadBalancing.TokenAware do
     wrapped: %Cassandra.LoadBalancing.RoundRobin{},
   ]
 
+  def new([]), do: %__MODULE__{}
+  def new([{policy, args}]) do
+    wrapped = policy.new(args)
+    %__MODULE__{wrapped: wrapped}
+  end
+
   defimpl Cassandra.LoadBalancing.Policy do
     alias Cassandra.{Cluster, Statement, LoadBalancing}
     alias Cassandra.Session.ConnectionManager

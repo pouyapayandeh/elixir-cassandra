@@ -10,6 +10,10 @@ defmodule Cassandra.LoadBalancing.RoundRobin do
 
   defstruct [num_connections: 10, max_tries: 3]
 
+  def new(args) do
+    struct(__MODULE__, args)
+  end
+
   defimpl Cassandra.LoadBalancing.Policy do
     alias Cassandra.LoadBalancing
     alias Cassandra.Session.ConnectionManager
