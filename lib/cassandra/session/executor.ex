@@ -65,10 +65,14 @@ defmodule Cassandra.Session.Executor do
     with %Prepared{} = prepared <- Cache.put_new_lazy(cache, cache_key(statement, ip), prepare) do
       Statement.put_prepared(statement, prepared)
     end
+  rescue
+    error -> {:error, error}
   end
 
   defp execute_on(connection, statement, options) do
     DBConnection.execute(connection, statement, statement.values, options)
+  rescue
+    error -> {:error, error}
   end
 
   defp cache_key(%Statement{query: query, options: options}, ip) do
@@ -96,7 +100,7 @@ defmodule Cassandra.Session.Executor do
       {:error, %CQL.Error{} = error} ->
         error
 
-      {:error, %Cassandra.ConnectionError{}} ->
+      {:error, _} ->
         run(%Statement{statement | connections: connections}, options, cache)
     end
   end
