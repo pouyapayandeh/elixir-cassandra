@@ -12,7 +12,13 @@ defmodule Cassandra.SessionTest do
 
   test "execute", %{session: session} do
     assert %CQL.Result.Rows{} = Session.execute(session, "SELECT * FROM system_schema.tables")
+  end
 
+  test "execute on default keyspace", %{session: session} do
+    assert %CQL.Result.Rows{} = Session.execute(session, "SELECT * FROM people")
+  end
+
+  test "insert", %{session: session} do
     insert = Statement.new("INSERT INTO #{@table} (id, name, age) VALUES (now(), :name, :age);")
 
     characters = [
@@ -32,23 +38,4 @@ defmodule Cassandra.SessionTest do
       assert !is_nil(Enum.find(rows.rows, fn [name, age] -> name == char[:name] and age == char[:age] end))
     end
   end
-
-  # test "batch", %{session: session} do
-  #   insert = "INSERT INTO people (id, name, age) VALUES (now(), ?, ?);"
-
-  #   characters = [
-  #     ["Bilbo", 50],
-  #     ["Frodo", 33],
-  #     ["Gandolf", 2019],
-  #   ]
-
-  #   assert %CQL.Result.Void{} = Session.execute(session, insert, cache)
-
-  #   assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} =
-  #     rows = Session.execute(session, "SELECT name, age FROM #{@keyspace}.people;")
-
-  #   for [name, age] <- characters do
-  #     assert !is_nil(Enum.find(rows.rows, &(&1 == [name, age])))
-  #   end
-  # end
 end

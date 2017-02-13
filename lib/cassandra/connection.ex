@@ -5,7 +5,7 @@ defmodule Cassandra.Connection do
   require Logger
 
   alias Cassandra.{Host, Statement, ConnectionError}
-  alias CQL.Frame
+  alias CQL.Result.SetKeyspace
 
   @defaults [
     port: 9042,
@@ -74,6 +74,7 @@ defmodule Cassandra.Connection do
     port            = options[:port]
     timeout         = options[:timeout]
     connect_timeout = options[:connect_timeout]
+    keyspace        = options[:keyspace]
     tcp_options     = [
       :binary,
       {:active, false},
@@ -82,7 +83,8 @@ defmodule Cassandra.Connection do
     ]
     with {:ok, socket}  <- :gen_tcp.connect(host, port, tcp_options, connect_timeout),
          :ok            <- handshake(socket, timeout),
-         {:ok, options} <- fetch_options(socket, timeout)
+         {:ok, options} <- fetch_options(socket, timeout),
+         :ok            <- set_keyspace(socket, keyspace, timeout)
     do
       {:ok, %{socket: socket, host: host, timeout: timeout, options: options}}
     else
@@ -182,15 +184,26 @@ defmodule Cassandra.Connection do
   end
 
   defp receive_body(socket, header, timeout) do
-    case Frame.body_length(header) do
+    case CQL.Frame.body_length(header) do
       {:ok, 0} -> {:ok, <<>>}
       {:ok, n} -> tcp_receive(socket, n, timeout)
       error    -> error
     end
   end
 
+  defp set_keyspace(_, nil, _), do: :ok
+  defp set_keyspace(socket, keyspace, timeout) do
+    query = %CQL.Query{query: "USE #{keyspace}"}
+    with {:ok, request}                       <- CQL.encode(query),
+         :ok                                  <- tcp_send(socket, request),
+         {:ok, %SetKeyspace{name: ^keyspace}} <- receive_response(socket, timeout)
+    do
+      :ok
+    end
+  end
+
   defp fetch_options(socket, timeout) do
-    with :ok <- tcp_send(socket, @options_request),
+    with :ok                                     <- tcp_send(socket, @options_request),
          {:ok, %CQL.Supported{options: options}} <- receive_response(socket, timeout)
     do
       {:ok, Enum.into(options, %{})}

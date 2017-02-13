@@ -21,6 +21,7 @@ defmodule Cassandra.SessionCase do
         options = [
           contact_points: [@host],
           session: session,
+          keyspace: @keyspace,
           cache: __MODULE__.Cache,
         ]
         {:ok, cluster} = Cluster.start_link(options)
