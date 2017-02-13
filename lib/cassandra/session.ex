@@ -9,6 +9,7 @@ defmodule Cassandra.Session do
     connection_manager: Cassandra.Session.ConnectionManager,
     session: Cassandra.Session,
     pool: DBConnection.Poolboy,
+    idle_timeout: 30_000,
     queue: false,
     executor_pool: [
       size: 10,
@@ -44,10 +45,10 @@ defmodule Cassandra.Session do
 
     {executor_pool_options, options} = Keyword.pop(options, :executor_pool)
     executor_pool_options = [
-      name: {:local, Keyword .fetch!(options, :session)},
-      strategy:      Keyword .get(executor_pool_options, :strategy, :lifo),
-      size:          Keyword .get(executor_pool_options, :pool_size, 10),
-      max_overflow:  Keyword .get(executor_pool_options, :pool_owerflow, 0),
+      name: {:local, Keyword.fetch!(options, :session)},
+      strategy:      Keyword.get(executor_pool_options, :strategy, :lifo),
+      size:          Keyword.get(executor_pool_options, :pool_size, 10),
+      max_overflow:  Keyword.get(executor_pool_options, :pool_owerflow, 0),
       worker_module: Cassandra.Session.Executor,
     ]
 

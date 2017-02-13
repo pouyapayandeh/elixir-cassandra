@@ -10,8 +10,8 @@ defmodule Cassandra.Connection do
   @defaults [
     port: 9042,
     host: {127, 0, 0, 1},
-    connect_timeout: 1000,
-    timeout: 5000,
+    connect_timeout: 5_000,
+    timeout: 10_000,
   ]
 
   @header_length 9
