@@ -185,4 +185,24 @@ static ErlNifFunc nif_funcs[] = {
   {"native_x64_128", 2, x64_128_nif, 0}
 };
 
-ERL_NIF_INIT(Elixir.Cassandra.Murmur3, nif_funcs, NULL, NULL, NULL, NULL)
+int load (ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
+  (void) env;
+  (void) priv_data;
+  (void) load_info;
+  return 0;
+}
+
+int upgrade (ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info) {
+  (void) env;
+  (void) priv_data;
+  (void) old_priv_data;
+  (void) load_info;
+  return 0;
+}
+
+void unload (ErlNifEnv* env, void* priv_data) {
+  (void) env;
+  (void) priv_data;
+}
+
+ERL_NIF_INIT(Elixir.Cassandra.Murmur3, nif_funcs, load, load, upgrade, unload)
