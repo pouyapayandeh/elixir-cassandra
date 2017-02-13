@@ -71,8 +71,8 @@ defmodule CQL.DataTypesTest do
   end
 
   test "timestamp with DateTime" do
-    naive = ~N[2017-02-11 13:43:33.745]
-    assert {:ok, time} = DateTime.from_naive(naive, "Etc/UTC")
+    time = DateTime.utc_now
+    naive = time |> DateTime.to_naive |> Map.update!(:microsecond, fn {n, 6} -> {div(n, 1000) * 1000, 3} end)
     assert naive == time |> encode(:timestamp) |> drop_size |> decode(:timestamp)
   end
 
