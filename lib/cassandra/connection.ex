@@ -158,7 +158,7 @@ defmodule Cassandra.Connection do
     with {:ok, data} <- :gen_tcp.recv(socket, bytes, timeout) do
       {:ok, data}
     else
-      {:error, reason} -> {:error, ConnectionError.new("TCP receive", reason)}
+      {:error, reason} -> ConnectionError.new("TCP receive", reason)
     end
   end
 
