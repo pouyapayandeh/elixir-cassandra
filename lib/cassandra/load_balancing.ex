@@ -2,13 +2,18 @@ defmodule Cassandra.LoadBalancing do
   @moduledoc false
 
   alias Cassandra.LoadBalancing.Policy
+  alias Cassandra.Session.ConnectionManager
 
   @distances [:ignore, :local, :remote]
 
   defmacro distances, do: @distances
 
   def plan(statement, balancer, cluster, connection_manager) do
-    Policy.plan(balancer, statement, cluster, connection_manager)
+    if Keyword.get(statement.options, :on_coordinator, false) do
+      %{statement | connections: ConnectionManager.connections(connection_manager)}
+    else
+      Policy.plan(balancer, statement, cluster, connection_manager)
+    end
   end
 
   def count(balancer, host) do
