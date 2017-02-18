@@ -150,7 +150,7 @@ defmodule Cassandra.Connection do
     with :ok <- :gen_tcp.send(socket, request) do
       :ok
     else
-      {:error, reason} -> {:error, ConnectionError.new("TCP send", reason)}
+      {:error, reason} -> ConnectionError.new("TCP send", reason)
     end
   end
 
@@ -178,8 +178,8 @@ defmodule Cassandra.Connection do
     do
       {:ok, frame}
     else
-      error = %CQL.Error{} -> error
-      {:error, reason}     -> ConnectionError.new("TCP receive", reason)
+      error = %CQL.Error{}       -> error
+      error = %ConnectionError{} -> error
     end
   end
 
