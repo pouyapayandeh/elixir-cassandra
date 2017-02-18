@@ -29,7 +29,7 @@ defmodule CQL.Error do
   end
 
   def message(%__MODULE__{code: code, message: message, info: info}) do
-    "[#{inspect code}] #{message}: #{info}"
+    "[#{code}] #{message}: #{inspect info}"
   end
 
   def decode(buffer) do
