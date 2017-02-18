@@ -28,6 +28,9 @@ defmodule Cassandra.Connection do
       :gen_tcp.close(socket)
       result
     end
+  else
+    {:error, %ConnectionError{} = error} -> error
+    error                                -> error
   end
 
   def query(socket, request, timeout \\ @defaults[:timeout]) do
