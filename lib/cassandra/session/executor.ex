@@ -47,11 +47,12 @@ defmodule Cassandra.Session.Executor do
 
   @doc false
   def handle_call({:execute, statement, values}, _from, state) do
+    options = state.options |> Keyword.put(:log, statement.options[:log])
     reply =
       statement
       |> Statement.put_values(values)
       |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
-      |> run(state.options, state.cache)
+      |> run(options, state.cache)
 
     {:reply, reply, state}
   end
