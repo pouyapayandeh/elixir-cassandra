@@ -276,7 +276,7 @@ defmodule Cassandra.Cluster do
     with {socket, _supported, _local_data} <- select_socket(state.options) do
       {:noreply, %{state | socket: socket}}
     else
-      _error -> {:stop, :connection_lost}
+      _error -> {:stop, :connection_lost, state}
     end
   end
 

@@ -56,7 +56,7 @@ defmodule Cassandra.Cluster.Watcher do
     with {:ok, socket} <- setup(state.options) do
       {:noreply, %{state | socket: socket}}
     else
-      _ -> {:stop, :connection_lost}
+      _ -> {:stop, :connection_lost, state}
     end
   end
 
