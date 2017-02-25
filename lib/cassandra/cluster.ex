@@ -279,6 +279,8 @@ defmodule Cassandra.Cluster do
         |> Map.merge(schema)
         |> refresh_schema
 
+      Enum.each(state.listeners, &send(&1, :refresh))
+
       {:noreply, state}
     else
       error -> {:stop, error, state}
@@ -319,7 +321,7 @@ defmodule Cassandra.Cluster do
 
   defp schema(func, args, %{socket: nil} = state, tries) do
     with {socket, supported, local_data} <- select_socket(state.options) do
-      schema(func, args, %{state | socket: socket, supported: supported, local_data: local_data}, tries)
+      schema(func, args, %{state | socket: socket, supported: supported, local_data: local_data})
     else
       _ -> schema(func, args, state, tries + 1)
     end

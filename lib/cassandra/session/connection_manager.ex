@@ -28,20 +28,16 @@ defmodule Cassandra.Session.ConnectionManager do
   ### GenServer Callbacks ###
 
   def init([cluster, balancer, options]) do
-    connections =
-      cluster
-      |> Cluster.up_hosts
-      |> Enum.map(&start_connection(&1, balancer, options))
-      |> Enum.filter_map(&match?({:ok, _, _}, &1), fn {:ok, ip, pid} -> {ip, pid} end)
-
     state = %{
       cluster: cluster,
       balancer: balancer,
       options: options,
-      connections: connections,
+      connections: [],
     }
 
-    {:ok, state}
+    connections = connect_to_up_hosts(state)
+
+    {:ok, %{state | connections: connections}}
   end
 
   def handle_call(:connections, _from, %{connections: connections} = state) do
@@ -82,12 +78,28 @@ defmodule Cassandra.Session.ConnectionManager do
     {:noreply, state}
   end
 
+  def handle_info(:refresh, state) do
+    connections =
+      case state.connections do
+        []          -> connect_to_up_hosts(state)
+        connections -> connections
+      end
+    {:noreply, %{state | connections: connections}}
+  end
+
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     connections = List.keydelete(state.connections, pid, 1)
     {:noreply, %{state | connections: connections}}
   end
 
   ### Helpers ###
+
+  defp connect_to_up_hosts(state) do
+    state.cluster
+    |> Cluster.up_hosts
+    |> Enum.map(&start_connection(&1, state.balancer, state.options))
+    |> Enum.filter_map(&match?({:ok, _, _}, &1), fn {:ok, ip, pid} -> {ip, pid} end)
+  end
 
   defp connection_options(host, count, options) do
     Keyword.merge(options, [
