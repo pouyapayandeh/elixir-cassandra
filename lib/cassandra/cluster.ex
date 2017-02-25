@@ -25,6 +25,8 @@ defmodule Cassandra.Cluster do
 
   @valid_options Keyword.keys(@defaults) ++ [:retry, :cache]
 
+  @max_tries 5
+
   ### Client API ###
 
   @doc """
@@ -129,6 +131,7 @@ defmodule Cassandra.Cluster do
         fetcher: options[:fetcher],
         watcher: watcher,
         supported: supported,
+        local_data: local_data,
         listeners: [],
       }
 
@@ -211,21 +214,16 @@ defmodule Cassandra.Cluster do
   @doc false
   def handle_info({:host, :found, {ip, _}}, state) do
     Logger.info("new host found: #{inspect ip}")
-    args = [
-      ip,
-      state.data_center,
-      state.parser,
-      state.socket,
-      state.fetcher,
-    ]
+    args = [ip, state.data_center, state.parser]
 
-    state = case apply(Schema.Fetcher, :fetch_peer, args) do
-      {:ok, host} ->
-        Enum.each(state.listeners, &send(&1, {:host, :found, host}))
-        put_in(state, [:hosts, ip], host)
-      _ ->
-        state
-    end
+    state =
+      case schema(:fetch_peer, args, state) do
+        {{:ok, host}, state} ->
+          Enum.each(state.listeners, &send(&1, {:host, :found, host}))
+          put_in(state, [:hosts, ip], host)
+
+        _ -> state
+      end
 
     {:noreply, refresh_schema(state)}
   end
@@ -264,19 +262,35 @@ defmodule Cassandra.Cluster do
   def handle_info({:keyspace, change, name}, state) do
     Logger.info("Keyspace #{change}: #{name}")
     state =
-      case Schema.Fetcher.fetch_keyspace(name, state.socket, state.fetcher) do
-        {:ok, keyspace} -> put_in(state, [:keyspaces, name], keyspace)
-        _               -> state
+      case schema(:fetch_keyspace, [name], state) do
+        {{:ok, keyspace}, state} ->
+          put_in(state, [:keyspaces, name], keyspace)
+
+        _ -> state
       end
     {:noreply, refresh_schema(state)}
   end
 
   @doc false
-  def handle_info({:tcp_closed, socket}, %{socket: socket} = state) do
-    with {socket, _supported, _local_data} <- select_socket(state.options) do
-      {:noreply, %{state | socket: socket}}
+  def handle_info(:connected, state) do
+    with {{:ok, schema}, state} <- schema(:fetch, [state.local_data], state) do
+      state =
+        state
+        |> Map.merge(schema)
+        |> refresh_schema
+
+      {:noreply, state}
     else
-      _error -> {:stop, :connection_lost, state}
+      error -> {:stop, error, state}
+    end
+  end
+
+  @doc false
+  def handle_info({:tcp_closed, socket}, %{socket: socket} = state) do
+    with {socket, supported, local_data} <- select_socket(state.options) do
+      {:noreply, %{state | socket: socket, supported: supported, local_data: local_data}}
+    else
+      _ -> {:noreply, %{state | socket: nil}}
     end
   end
 
@@ -293,11 +307,32 @@ defmodule Cassandra.Cluster do
     |> Enum.take(1)
     |> case do
       [result] -> result
-      []       -> ConnectionError.new("select contact pont", "not available")
+      []       -> ConnectionError.new("select contact point", "not available")
     end
   end
 
   ### Helpers ###
+
+  defp schema(_, _, %{socket: nil}, @max_tries) do
+    ConnectionError.new("reconnection", "faield")
+  end
+
+  defp schema(func, args, %{socket: nil} = state, tries) do
+    with {socket, supported, local_data} <- select_socket(state.options) do
+      schema(func, args, %{state | socket: socket, supported: supported, local_data: local_data}, tries)
+    else
+      _ -> schema(func, args, state, tries + 1)
+    end
+  end
+
+  defp schema(func, args, state) do
+    case apply(Schema.Fetcher, func, args ++ [state.socket, state.fetcher]) do
+      %ConnectionError{reason: :closed} ->
+        schema(func, args, %{state | socket: nil}, 0)
+      result ->
+        {result, state}
+    end
+  end
 
   defp refresh_schema(schema) do
     host_tokens = Enum.map(schema.hosts, fn {ip, host} -> {ip, host.tokens} end)

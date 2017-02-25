@@ -1,8 +1,12 @@
 defmodule Cassandra.Cluster.Watcher do
   use GenServer
 
-  alias Cassandra.{Cluster, Connection}
+  require Logger
 
+  alias Cassandra.{Cluster, Connection, ConnectionError}
+
+  @initial_backoff 1000
+  @max_backoff 12_000
   @register_events CQL.encode!(%CQL.Register{})
 
   def start_link(options) do
@@ -24,8 +28,13 @@ defmodule Cassandra.Cluster.Watcher do
   ### GenServer Callbacks ###
 
   def init(options) do
+    backoff = @initial_backoff
     with {:ok, socket} <- setup(options) do
-      {:ok, %{socket: socket, options: options, listeners: []}}
+      {:ok, %{socket: socket, options: options, listeners: [], backoff: backoff}}
+    else
+      %ConnectionError{} ->
+        Process.send_after(self(), :connect, backoff)
+        {:ok, %{socket: nil, options: options, listeners: [], backoff: next_backoff(backoff)}}
     end
   end
 
@@ -52,12 +61,22 @@ defmodule Cassandra.Cluster.Watcher do
     {:noreply, state}
   end
 
-  def handle_info({:tcp_closed, socket}, %{socket: socket} = state) do
+  def handle_info(:connect, %{socket: nil, backoff: backoff} = state) do
+    Logger.info("Cassandra watcher tring to connect ...")
     with {:ok, socket} <- setup(state.options) do
-      {:noreply, %{state | socket: socket}}
+      Logger.info("Cassandra watcher connected")
+      Enum.each(state.listeners, &send(&1, :connected))
+      {:noreply, %{state | socket: socket, backoff: @initial_backoff}}
     else
-      _ -> {:stop, :connection_lost, state}
+      %ConnectionError{} ->
+        Process.send_after(self(), :connect, backoff)
+        {:noreply, %{state | socket: nil, backoff: next_backoff(backoff)}}
     end
+  end
+
+  def handle_info({:tcp_closed, socket}, %{socket: socket} = state) do
+    Logger.warn("Cassandra watcher connection lost")
+    handle_info(:connect, %{state | socket: nil})
   end
 
   ###
@@ -79,6 +98,11 @@ defmodule Cassandra.Cluster.Watcher do
 
   def ready?(%CQL.Ready{}), do: :ok
   def ready?(error), do: error
+
+  defp next_backoff(n) do
+    m = min(n * 1.2, @max_backoff)
+    trunc((0.2 * (:rand.uniform + 1) * m) + m)
+  end
 
   defp event_type(%CQL.Event{type: type, info: %{change: change, address: address}})
   when type in ["TOPOLOGY_CHANGE", "STATUS_CHANGE"]
