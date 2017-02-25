@@ -84,12 +84,13 @@ defmodule Cassandra.Session.ConnectionManager do
         []          -> connect_to_up_hosts(state)
         connections -> connections
       end
+
     {:noreply, %{state | connections: connections}}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     connections = List.keydelete(state.connections, pid, 1)
-    {:noreply, %{state | connections: connections}}
+    handle_info(:refresh, %{state | connections: connections})
   end
 
   ### Helpers ###
