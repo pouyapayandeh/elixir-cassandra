@@ -202,6 +202,12 @@ defmodule Cassandra.Connection do
          {:ok, %SetKeyspace{name: ^keyspace}} <- receive_response(socket, timeout)
     do
       :ok
+    else
+      %CQL.Error{} = error ->
+        Logger.error(Exception.format_banner(:error, error, []))
+        :ok
+
+      error -> error
     end
   end
 
