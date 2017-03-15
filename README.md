@@ -19,21 +19,13 @@ This driver works with Cassandra Query Language version 3 (CQL3) and Cassandra's
 * Token based load-balancing policy
 * Automatic prepare and cache prepared statements per host
 
-## Todo
-
-* [ ] Compression
-* [ ] Batch statement
-* [ ] Authentication and SSL encryption
-* [ ] User Defined Types
-* [ ] Use prepared `result_metadata` optimization
-
 ## Installation
 
 Add `cassandra` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:cassandra, "~> 1.0.0-beta.3"}]
+  [{:cassandra, "~> 1.0.0-beta.5"}]
 end
 ```
 
@@ -86,4 +78,12 @@ Repo.execute("SELECT * FROM test.users;")
 #   ]
 # }
 ```
+
+## Todo
+
+* [ ] Compression
+* [ ] Batch statement
+* [ ] Authentication and SSL encryption
+* [ ] User Defined Types
+* [ ] Use prepared `result_metadata` optimization
 
