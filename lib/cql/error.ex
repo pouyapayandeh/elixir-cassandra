@@ -28,6 +28,10 @@ defmodule CQL.Error do
     %__MODULE__{code: :invalid, message: message, info: info}
   end
 
+  def message(%__MODULE__{code: code, message: message, info: ""}) do
+    "[#{code}] #{message}"
+  end
+
   def message(%__MODULE__{code: code, message: message, info: info}) do
     "[#{code}] #{message}: #{inspect info}"
   end
