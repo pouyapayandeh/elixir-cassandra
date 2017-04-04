@@ -21,9 +21,8 @@ defmodule Cassandra.Session.Executor do
     end
   end
 
-  def execute(executor, %Statement{} = statement, values) do
-    timeout = Keyword.get(statement.options, :timeout, :infinity)
-    GenServer.call(executor, {:execute, statement, values}, timeout)
+  def execute(executor, query, options, timeout \\ :infinity) when is_binary(query) and is_list(options) do
+    GenServer.call(executor, {:execute, query, options}, timeout)
   end
 
   ### poolboy_worker callbacks ###
@@ -48,13 +47,17 @@ defmodule Cassandra.Session.Executor do
   end
 
   @doc false
-  def handle_call({:execute, statement, values}, _from, state) do
-    options = state.options |> Keyword.put(:log, statement.options[:log])
+  def handle_call({:execute, query, options}, _from, state) do
+    statement = Statement.new(query, options, state.options)
+    values = Keyword.get(options, :values, [])
+
+    run_options = Keyword.put(state.options, :log, statement.options[:log])
+
     reply =
       statement
       |> Statement.put_values(values)
       |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
-      |> run(options, state.cache)
+      |> run(run_options, state.cache)
 
     {:reply, reply, state}
   end

@@ -60,8 +60,8 @@ defmodule Cassandra do
         supervise(children, strategy: :rest_for_one)
       end
 
-      def execute(statement, values \\ []) do
-        Session.execute(@session, statement, values)
+      def execute(query, options \\ []) do
+        Session.execute(@session, query, options)
       end
     end
   end

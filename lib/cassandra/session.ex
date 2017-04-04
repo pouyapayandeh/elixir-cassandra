@@ -1,12 +1,12 @@
 defmodule Cassandra.Session do
   use Supervisor
 
-  alias Cassandra.Statement
+  alias Cassandra.Session.{Executor, ConnectionManager}
 
   @default_balancer {Cassandra.LoadBalancing.TokenAware, []}
 
   @defaults [
-    connection_manager: Cassandra.Session.ConnectionManager,
+    connection_manager: ConnectionManager,
     session: Cassandra.Session,
     pool: DBConnection.Poolboy,
     idle_timeout: 30_000,
@@ -24,14 +24,9 @@ defmodule Cassandra.Session do
 
   def execute(pool, query, options \\ [])
 
-  def execute(pool, %Statement{} = statement, values) do
-    :poolboy.transaction pool, fn executor ->
-      Cassandra.Session.Executor.execute(executor, statement, values)
-    end
-  end
-
-  def execute(pool, query, options) do
-    execute(pool, Statement.new(query, options), Keyword.get(options, :values, []))
+  def execute(pool, query, options) when is_list(options) do
+    timeout = Keyword.get(options, :timeout, :infinity)
+    :poolboy.transaction(pool, &Executor.execute(&1, query, options), timeout)
   end
 
   def init([cluster, options]) do
@@ -49,12 +44,12 @@ defmodule Cassandra.Session do
       strategy:      Keyword.get(executor_pool_options, :strategy, :lifo),
       size:          Keyword.get(executor_pool_options, :pool_size, 10),
       max_overflow:  Keyword.get(executor_pool_options, :pool_owerflow, 0),
-      worker_module: Cassandra.Session.Executor,
+      worker_module: Executor,
     ]
 
     children = [
-      worker(Cassandra.Session.ConnectionManager, [cluster, options]),
-      :poolboy.child_spec(Cassandra.Session.Executor, executor_pool_options, [cluster, options]),
+      worker(ConnectionManager, [cluster, options]),
+      :poolboy.child_spec(Executor, executor_pool_options, [cluster, options]),
     ]
 
     supervise(children, strategy: :one_for_one)

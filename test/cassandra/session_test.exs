@@ -19,7 +19,7 @@ defmodule Cassandra.SessionTest do
   end
 
   test "insert", %{session: session} do
-    insert = Statement.new("INSERT INTO #{@table} (id, name, age) VALUES (now(), :name, :age);")
+    insert = "INSERT INTO #{@table} (id, name, age) VALUES (now(), :name, :age);"
 
     characters = [
       %{name: "Bilbo", age: 50},
@@ -28,7 +28,7 @@ defmodule Cassandra.SessionTest do
     ]
 
     assert characters
-      |> Enum.map(&Session.execute(session, insert, &1))
+      |> Enum.map(&Session.execute(session, insert, values: &1))
       |> Enum.all?(&match?(%CQL.Result.Void{}, &1))
 
     assert %CQL.Result.Rows{rows_count: 3, columns: ["name", "age"]} =

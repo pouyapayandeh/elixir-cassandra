@@ -20,6 +20,10 @@ defmodule Cassandra.Statement do
     }
   end
 
+  def new(query, options, defaults) do
+    new(query, Keyword.put_new_lazy(options, :consistency, fn -> consistency(query, defaults) end))
+  end
+
   def put_values(statement, values) do
     partition_key = partition_key(statement, values)
     %__MODULE__{statement | partition_key: partition_key, values: values}
@@ -53,6 +57,20 @@ defmodule Cassandra.Statement do
     picker.(values)
   end
   defp partition_key(_, _), do: nil
+
+  defp consistency(query, defaults) do
+    key =
+      if read?(query) do
+        :read_consistency
+      else
+        :write_consistency
+      end
+
+    Keyword.get(defaults, key, :quorum)
+  end
+
+  defp read?("SELECT" <> _), do: true
+  defp read?(_),             do: false
 
   defimpl DBConnection.Query do
     alias Cassandra.Statement
