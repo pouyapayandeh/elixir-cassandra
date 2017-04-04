@@ -17,11 +17,15 @@ defmodule Cassandra.Statement do
     %__MODULE__{
       query: query,
       options: Keyword.delete(options, :values),
+      values: Keyword.get(options, :values, []),
     }
   end
 
   def new(query, options, defaults) do
-    new(query, Keyword.put_new_lazy(options, :consistency, fn -> consistency(query, defaults) end))
+    options = Keyword.put_new_lazy options, :consistency, fn ->
+      consistency(query, defaults)
+    end
+    new(query, options)
   end
 
   def put_values(statement, values) do
@@ -29,10 +33,15 @@ defmodule Cassandra.Statement do
     %__MODULE__{statement | partition_key: partition_key, values: values}
   end
 
+  def update_pk(%__MODULE__{values: values} = statement) do
+    put_values(statement, values || [])
+  end
+
   def put_prepared(statement, prepared) do
     %__MODULE__{statement | prepared: prepared}
     |> clean
     |> set_pk_picker
+    |> update_pk
   end
 
   def clean(statement) do

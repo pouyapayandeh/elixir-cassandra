@@ -47,22 +47,27 @@ defmodule Cassandra.Session.Executor do
   end
 
   @doc false
-  def handle_call({:execute, query, options}, _from, state) do
-    statement = Statement.new(query, options, state.options)
-    values = Keyword.get(options, :values, [])
+  def handle_call({:execute, query, options}, from, state) do
+    run_options = Keyword.put(state.options, :log, options[:log])
 
-    run_options = Keyword.put(state.options, :log, statement.options[:log])
+    query
+    |> Statement.new(options, state.options)
+    |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
+    |> run_async(run_options, from)
 
-    reply =
-      statement
-      |> Statement.put_values(values)
-      |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
-      |> run(run_options, state.cache)
+    {:noreply, state}
+  end
 
-    {:reply, reply, state}
+  def handle_cast({:run, statement, options, from}, state) do
+    GenServer.reply(from, run(statement, options, state.cache))
+    {:noreply, state}
   end
 
   ### Helpers ###
+
+  defp run_async(statement, options, from) do
+    GenServer.cast(self(), {:run, statement, options, from})
+  end
 
   defp prepare_on(ip, connection, statement, options, cache) do
     prepare = fn ->
