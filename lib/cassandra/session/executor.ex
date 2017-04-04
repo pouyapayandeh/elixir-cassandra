@@ -2,6 +2,8 @@ defmodule Cassandra.Session.Executor do
   use GenServer
   @behaviour :poolboy_worker
 
+  require Logger
+
   alias Cassandra.{LoadBalancing, Statement, Cache}
   alias CQL.Result.Prepared
 
@@ -102,7 +104,8 @@ defmodule Cassandra.Session.Executor do
       {:error, %CQL.Error{} = error} ->
         error
 
-      {:error, _} ->
+      {:error, reason} ->
+        Logger.warn("#{__MODULE__} got error: #{inspect reason}")
         run(%Statement{statement | connections: connections}, options, cache)
     end
   end
