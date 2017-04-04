@@ -42,8 +42,8 @@ defmodule Cassandra.Session do
     executor_pool_options = [
       name: {:local, Keyword.fetch!(options, :session)},
       strategy:      Keyword.get(executor_pool_options, :strategy, :lifo),
-      size:          Keyword.get(executor_pool_options, :pool_size, 10),
-      max_overflow:  Keyword.get(executor_pool_options, :pool_owerflow, 0),
+      size:          Keyword.get(executor_pool_options, :size, 10),
+      max_overflow:  Keyword.get(executor_pool_options, :owerflow, 0),
       worker_module: Executor,
     ]
 
