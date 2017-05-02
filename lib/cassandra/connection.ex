@@ -89,7 +89,7 @@ defmodule Cassandra.Connection do
          {:ok, options} <- fetch_options(socket, timeout),
          :ok            <- set_keyspace(socket, keyspace, timeout)
     do
-      {:ok, %{socket: socket, host: host, timeout: timeout, options: options}}
+      {:ok, %{socket: socket, host: host, timeout: timeout, options: options, last_cursor: 0, cursors: %{}}}
     else
       {:error, reason} when is_atom(reason) -> {:error, ConnectionError.new("TCP Connect", reason)}
       error                                 -> {:error, error}
@@ -111,7 +111,7 @@ defmodule Cassandra.Connection do
     {:error, error, state}
   end
 
-  def handle_execute(%Statement{}, request, _options, state) do
+  def handle_execute(%Statement{}, {request, _params}, _options, state) do
     with {:ok, result} <- fetch(request, state.socket, state.timeout) do
       {:ok, result, state}
     else
@@ -129,6 +129,38 @@ defmodule Cassandra.Connection do
     else
       error -> {:error, error, state}
     end
+  end
+
+  def handle_declare(_statement, {_request, params}, _options, state) do
+    cursor = next_cursor(state.last_cursor)
+    {:ok, {cursor, params}, %{state | last_cursor: cursor}}
+  end
+
+  def handle_first(%Statement{} = statement, {cursor, params}, options, state) do
+    handle_next(statement, {cursor, params}, options, state)
+  end
+
+  def handle_next(%Statement{} = statement, {cursor, params}, _options, state) do
+    paging_state = Map.get(state.cursors, cursor)
+    execute = %CQL.Execute{prepared: statement.prepared, params: %{params | paging_state: paging_state}}
+    with {:ok, request} <- CQL.encode(execute),
+         {:ok, frame} <- fetch(request, state.socket, state.timeout),
+         %CQL.Result.Rows{paging_state: paging_state} = rows <- CQL.Result.Rows.decode_meta(frame)
+    do
+      if is_nil(paging_state) do
+        {:deallocate, rows, state}
+      else
+        next_state = Map.update!(state, :cursors, &Map.put(&1, cursor, paging_state))
+        {:ok, rows, next_state}
+      end
+    else
+      error -> {:error, error, state}
+    end
+  end
+
+  def handle_deallocate(_statement, {cursor, _params}, _options, state) do
+    next_state = Map.update(state, :cursors, %{}, &Map.delete(&1, cursor))
+    {:ok, cursor, next_state}
   end
 
   def ping(%{socket: socket, timeout: timeout} = state) do
@@ -238,4 +270,7 @@ defmodule Cassandra.Connection do
 
   defp ok?({_, {:ok, _}}), do: true
   defp ok?(_),             do: false
+
+  defp next_cursor(500_000), do: 1
+  defp next_cursor(n)      , do: n + 1
 end

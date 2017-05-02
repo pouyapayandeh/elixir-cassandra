@@ -37,5 +37,8 @@ defmodule Cassandra.SessionTest do
     for char <- characters do
       assert !is_nil(Enum.find(rows.rows, fn [name, age] -> name == char[:name] and age == char[:age] end))
     end
+
+    assert [%CQL.Result.Rows{rows_count: 2}, %CQL.Result.Rows{rows_count: 1}] =
+      Session.run_stream(session, "SELECT name, age FROM #{@table};", &Enum.to_list/1, page_size: 2)
   end
 end

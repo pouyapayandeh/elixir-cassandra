@@ -25,6 +25,11 @@ defmodule Cassandra.Session.Executor do
     GenServer.call(executor, {:execute, query, options}, timeout)
   end
 
+  def stream(executor, query, func, options, timeout \\ :infinity) when is_binary(query) and is_list(options) do
+    options = Keyword.put(options, :streamer, func)
+    GenServer.call(executor, {:execute, query, options}, timeout)
+  end
+
   ### poolboy_worker callbacks ###
 
   def start_link([cluster, options]) do
@@ -52,6 +57,7 @@ defmodule Cassandra.Session.Executor do
 
     query
     |> Statement.new(options, state.options)
+    |> Map.put(:streamer, Keyword.get(options, :streamer))
     |> LoadBalancing.plan(state.balancer, state.cluster, state.connection_manager)
     |> run_async(run_options, from)
 
@@ -81,14 +87,18 @@ defmodule Cassandra.Session.Executor do
     error -> {:error, error}
   end
 
-  defp execute_on(connection, statement, options) do
-    DBConnection.execute(connection, statement, statement.values, options)
-  rescue
-    error -> {:error, error}
-  end
-
   defp cache_key(%Statement{query: query, options: options}, ip) do
     :erlang.phash2({query, options, ip})
+  end
+
+  defp run_on(connection, %Statement{streamer: streamer} = statement, options) do
+    if is_nil(streamer) do
+      DBConnection.execute(connection, statement, statement.values, options)
+    else
+      DBConnection.run(connection, &streamer.(DBConnection.stream(&1, statement, statement.values, options)), options)
+    end
+  rescue
+    error -> {:error, error}
   end
 
   defp run(%Statement{connections: []}, _options, _cache) do
@@ -98,13 +108,10 @@ defmodule Cassandra.Session.Executor do
   defp run(%Statement{connections: [{ip, connection} | connections]} = statement, options, cache) do
     result =
       with %Statement{} = prepared <- prepare_on(ip, connection, statement, options, cache) do
-        execute_on(connection, prepared, options)
+        run_on(connection, prepared, options)
       end
 
     case result do
-      {:ok, result} ->
-        result
-
       {:error, %CQL.Error{code: :unprepared}} ->
         Cache.delete(cache, cache_key(statement, ip))
         run(statement, options, cache)
@@ -115,6 +122,9 @@ defmodule Cassandra.Session.Executor do
       {:error, reason} ->
         Logger.warn("#{__MODULE__} got error: #{inspect reason}")
         run(%Statement{statement | connections: connections}, options, cache)
+
+      {:ok, result} -> result
+      result        -> result
     end
   end
 end

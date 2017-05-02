@@ -11,6 +11,7 @@ defmodule Cassandra.Statement do
     :partition_key_picker,
     :values,
     :connections,
+    :streamer,
   ]
 
   def new(query, options \\ []) do
@@ -93,8 +94,12 @@ defmodule Cassandra.Statement do
 
       execute = %CQL.Execute{prepared: statement.prepared, params: params}
       with {:ok, request} <- CQL.encode(execute) do
-        request
+        {request, params}
       end
+    end
+
+    def decode(_statement, %CQL.Result.Rows{} = rows, _options) do
+      CQL.Result.Rows.decode_rows(rows)
     end
 
     def decode(_statement, result, _options) do

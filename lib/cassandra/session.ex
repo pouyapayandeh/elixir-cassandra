@@ -22,11 +22,28 @@ defmodule Cassandra.Session do
     Supervisor.start_link(__MODULE__, [cluster, options])
   end
 
-  def execute(pool, query, options \\ [])
-
-  def execute(pool, query, options) when is_list(options) do
+  def execute(pool, query, options \\ []) when is_list(options) do
     timeout = Keyword.get(options, :timeout, :infinity)
     :poolboy.transaction(pool, &Executor.execute(&1, query, options), timeout)
+  end
+
+  @doc """
+  Executes a query and streams chunks of the results.
+
+  `func` must be a function of arity one which receives the stream as parameter.
+
+  ### Options
+
+    * `:page_size` - number of rows in each chunk (Cassandra recommends against using values below 100)
+
+  ### Example
+
+      Session.run_stream(session, "SELECT name, age FROM users;", &Enum.to_list/1, page_size: 2)
+
+  """
+  def run_stream(pool, query, func, options \\ []) when is_list(options) do
+    timeout = Keyword.get(options, :timeout, :infinity)
+    :poolboy.transaction(pool, &Executor.stream(&1, query, func, options), timeout)
   end
 
   def init([cluster, options]) do

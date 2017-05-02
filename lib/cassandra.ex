@@ -63,6 +63,10 @@ defmodule Cassandra do
       def execute(query, options \\ []) do
         Session.execute(@session, query, options)
       end
+
+      def run_stream(query, func, options \\ []) do
+        Session.run_stream(@session, query, func, options)
+      end
     end
   end
 

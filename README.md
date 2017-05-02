@@ -18,6 +18,7 @@ This driver works with Cassandra Query Language version 3 (CQL3) and Cassandra's
 * Prepared statements with named and position based values
 * Token based load-balancing policy
 * Automatic prepare and cache prepared statements per host
+* Result paging
 
 ## Installation
 
@@ -85,5 +86,4 @@ Repo.execute("SELECT * FROM test.users;")
 * [ ] Batch statement
 * [ ] Authentication and SSL encryption
 * [ ] User Defined Types
-* [ ] Use prepared `result_metadata` optimization
 
