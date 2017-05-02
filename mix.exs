@@ -29,14 +29,15 @@ defmodule Cassandra.Mixfile do
   ]
 
   defp deps, do: [
-    {:uuid, "~> 1.1"},
-    {:poolboy, "~> 1.5"},
-    {:elixir_make, "~> 0.4", runtime: false},
     {:db_connection, "~> 1.1"},
-    {:excheck, "~> 0.5", only: :test},
-    {:triq, github: "triqng/triq", only: :test},
-    {:excoveralls, "~> 0.6", only: :test},
+    {:elixir_make, "~> 0.4", runtime: false},
     {:ex_doc, "~> 0.15", only: :dev},
+    {:excheck, "~> 0.5", only: :test},
+    {:excoveralls, "~> 0.6", only: :test},
+    {:lz4, "~> 0.2"},
+    {:poolboy, "~> 1.5"},
+    {:triq, github: "triqng/triq", only: :test},
+    {:uuid, "~> 1.1"},
   ]
 
   defp version, do: "1.0.0-beta.5"

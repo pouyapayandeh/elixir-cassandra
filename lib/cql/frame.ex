@@ -102,6 +102,14 @@ defmodule CQL.Frame do
         {[], body}
       end
 
+    body =
+      if :compression in flags do
+        {:ok, uncompressed} = CQL.LZ4.unpack(body)
+        uncompressed
+      else
+        body
+      end
+
     frame = %__MODULE__{
       version: version,
       flags: flags,
