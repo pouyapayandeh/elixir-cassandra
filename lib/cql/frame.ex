@@ -1,7 +1,10 @@
 defmodule CQL.Frame do
   @moduledoc false
 
+  require Logger
+
   import CQL.DataTypes.Encoder
+
   alias CQL.DataTypes.Decoder
 
   defstruct [
@@ -113,6 +116,7 @@ defmodule CQL.Frame do
         {[], body}
       end
 
+    Enum.each(warnings, &Logger.warn/1)
 
     frame = %__MODULE__{
       version: version,

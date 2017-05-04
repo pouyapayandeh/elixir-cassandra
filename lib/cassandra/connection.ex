@@ -200,9 +200,8 @@ defmodule Cassandra.Connection do
 
   defp receive_response(socket, timeout) do
     with {:ok, frame} <- receive_frame(socket, timeout),
-         {:ok, %CQL.Frame{body: body, warnings: warnings}} <- CQL.decode(frame)
+         {:ok, %CQL.Frame{body: body}} <- CQL.decode(frame)
     do
-      Enum.each(warnings, &Logger.warn/1)
       {:ok, body}
     end
   end
