@@ -24,4 +24,6 @@ before_install:
   - wget http://apache.mirror.anlx.net/cassandra/3.10/apache-cassandra-3.10-bin.tar.gz
   - tar -xzf apache-cassandra-3.10-bin.tar.gz
   - sh ./apache-cassandra-3.10/bin/cassandra 2>&1 >/dev/null
+  - mix deps.get
+  - rm deps/lz4/c_src/*.o
 script: mix coveralls.travis
