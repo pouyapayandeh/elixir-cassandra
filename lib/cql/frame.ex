@@ -88,6 +88,17 @@ defmodule CQL.Frame do
   do
     flags = Decoder.flag_to_names(flags, @flags)
 
+    body =
+      if :compression in flags do
+        with {:ok, uncompressed} <- CQL.LZ4.unpack(body) do
+          uncompressed
+        else
+          {:error, reason} -> CQL.Error.new("frame: #{inspect reason}")
+        end
+      else
+        body
+      end
+
     {tracing_id, body} =
       if :tracing in flags do
         Decoder.uuid(body)
@@ -102,13 +113,6 @@ defmodule CQL.Frame do
         {[], body}
       end
 
-    body =
-      if :compression in flags do
-        {:ok, uncompressed} = CQL.LZ4.unpack(body)
-        uncompressed
-      else
-        body
-      end
 
     frame = %__MODULE__{
       version: version,
