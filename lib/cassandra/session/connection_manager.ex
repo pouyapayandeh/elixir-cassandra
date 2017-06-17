@@ -35,6 +35,8 @@ defmodule Cassandra.Session.ConnectionManager do
       connections: [],
     }
 
+    Cluster.register(cluster)
+
     connections = connect_to_up_hosts(state)
 
     {:ok, %{state | connections: connections}}
