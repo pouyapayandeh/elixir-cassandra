@@ -1,5 +1,5 @@
 ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
-CFLAGS = -O3 -std=c99 -fPIC -Wall -Wextra -Wimplicit-fallthrough=0 -I$(ERLANG_PATH)
+CFLAGS = -O3 -std=c99 -fPIC -Wall -Wextra -Wno-implicit-fallthrough -I$(ERLANG_PATH)
 CC = gcc
 
 KERNEL_NAME = $(shell uname -s)
