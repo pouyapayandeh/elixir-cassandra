@@ -51,7 +51,8 @@ defmodule Cassandra.Connection do
   def stream(hosts, options) do
     hosts
     |> Stream.map(&{&1, connect(&1, options)})
-    |> Stream.filter_map(&ok?/1, fn {host, {:ok, %{socket: socket, options: options}}} -> {host, socket, options} end)
+    |> Stream.filter(&ok?/1)
+    |> Stream.map(fn {host, {:ok, %{socket: socket, options: options}}} -> {host, socket, options} end)
   end
 
   def connect({host, port}, options) do

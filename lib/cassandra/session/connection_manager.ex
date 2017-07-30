@@ -101,7 +101,8 @@ defmodule Cassandra.Session.ConnectionManager do
     state.cluster
     |> Cluster.up_hosts
     |> Enum.map(&start_connection(&1, state.balancer, state.options))
-    |> Enum.filter_map(&match?({:ok, _, _}, &1), fn {:ok, ip, pid} -> {ip, pid} end)
+    |> Enum.filter(&match?({:ok, _, _}, &1))
+    |> Enum.map(fn {:ok, ip, pid} -> {ip, pid} end)
   end
 
   defp connection_options(host, count, options) do
