@@ -4,9 +4,8 @@ elixir:
   - 1.4
   - 1.5
 otp_release:
-  - 19.1
-  - 19.2
   - 19.3
+  - 20.0
 addons:
   apt:
     packages:
