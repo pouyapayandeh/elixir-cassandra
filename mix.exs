@@ -5,7 +5,7 @@ defmodule Cassandra.Mixfile do
     app: :cassandra,
     version: version(),
     name: "Cassandra",
-    elixir: "~> 1.3",
+    elixir: "~> 1.4",
     build_embedded: Mix.env == :prod,
     start_permanent: Mix.env == :prod,
     compilers: [:elixir_make | Mix.compilers],
@@ -40,7 +40,7 @@ defmodule Cassandra.Mixfile do
     {:uuid, "~> 1.1"},
   ]
 
-  defp version, do: "1.0.0-beta.5"
+  defp version, do: "1.0.0-rc.1"
 
   defp docs, do: [
     main: "readme",
