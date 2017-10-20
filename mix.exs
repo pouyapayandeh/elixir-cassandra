@@ -40,7 +40,7 @@ defmodule Cassandra.Mixfile do
     {:uuid, "~> 1.1"},
   ]
 
-  defp version, do: "1.0.0-rc.1"
+  defp version, do: "1.0.0-rc.2"
 
   defp docs, do: [
     main: "readme",
