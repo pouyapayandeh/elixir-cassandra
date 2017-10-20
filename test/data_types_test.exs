@@ -125,6 +125,15 @@ defmodule CQL.DataTypesTest do
     end
   end
 
+  test "inet v6" do
+    nets = [
+      {0, 0, 0, 0, 0, 0, 0, 1},
+    ]
+    for net <- nets do
+      assert net == net |> encode(:inet) |> has_size(16) |> decode(:inet)
+    end
+  end
+
   property "int" do
     for_all n in int() do
       n == n |> encode(:int) |> has_size(4) |> decode(:int)
