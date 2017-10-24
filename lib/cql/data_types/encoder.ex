@@ -14,7 +14,7 @@ defmodule CQL.DataTypes.Encoder do
   def encode(value) when is_binary(value),    do: encode({:text, value})
   def encode(value) when is_boolean(value),   do: encode({:boolean, value})
   def encode({_,_,_,_} = value),              do: encode({:inet, value})
-  def encode({_,_,_,_,_,_} = value),          do: encode({:inet, value})
+  def encode({_,_,_,_,_,_, _, _} = value),    do: encode({:inet, value})
 
   def encode({type, value}), do: encode(value, type)
 
@@ -82,9 +82,21 @@ defmodule CQL.DataTypes.Encoder do
   def short_bytes(bytes) when is_binary(bytes), do: short(byte_size(bytes)) <> <<bytes::bytes>>
   def short_bytes(x),                           do: invalid(:short_bytes, x)
 
-  def inet(ip) when is_tuple(ip), do: ip |> Tuple.to_list |> inet
-  def inet(ip) when is_list(ip),  do: ip |> Enum.map(&byte/1) |> Enum.join
-  def inet(x),                    do: invalid(:inet, x)
+
+  def inet({_, _, _, _} = ip) do
+    ip
+    |> Tuple.to_list
+    |> Enum.map(&byte/1)
+    |> Enum.join()
+  end
+
+  def inet({_, _, _, _, _, _, _, _} = ip) do
+    ip
+    |> Tuple.to_list
+    |> Enum.map(&short/1)
+    |> Enum.join()
+  end
+  def inet(x), do: invalid(:inet, x)
 
   def string_map(map) when is_map(map) do
     if map |> Map.values |> Enum.all?(&is_binary/1) do

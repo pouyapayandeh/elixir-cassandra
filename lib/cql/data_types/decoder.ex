@@ -87,15 +87,23 @@ defmodule CQL.DataTypes.Decoder do
     {{a, b, c, d}, ""}
   end
 
-  def inet(<<a, b, c, d, e, f>>) do
-    {{a, b, c, d, e, f}, ""}
+  def inet(
+      <<a::integer-16,
+      b::integer-16,
+      c::integer-16,
+      d::integer-16,
+      e::integer-16,
+      f::integer-16,
+      g::integer-16,
+      h::integer-16>>
+    ) do
+    {{a, b, c, d, e, f, g, h}, ""}
   end
 
-  def inet(buffer) do
-    {n,    buffer} = byte(buffer)
-    {ip,   buffer} = ntimes(n, :byte, buffer)
+  def inet(<<size, data::size(size)-bytes, buffer::bits>>) do
+    {ip, _} = inet(data)
     {port, buffer} = int(buffer)
-    {{List.to_tuple(ip), port}, buffer}
+    {{ip, port}, buffer}
   end
 
   def string_map({n, buffer}) do
