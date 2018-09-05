@@ -1,12 +1,6 @@
 # Changelog
 
-## 1.0.0-beta.2
+## 1.0.1
 
-* Add batch support
-* Add Date/DateTime/Time encoder/decoders
-* Add configurable retry policy
-* Better Task management in Session
-
-## 1.0.0-beta.1
-
-* Return CQL.Result.Rows struct instead of a map
+* Freeze version `1.0` features and release stable version
+* Upgrade deps

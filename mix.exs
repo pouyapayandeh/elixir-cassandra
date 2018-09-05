@@ -31,7 +31,7 @@ defmodule Cassandra.Mixfile do
   defp deps, do: [
     {:db_connection, "~> 1.1"},
     {:elixir_make, "~> 0.4", runtime: false},
-    {:ex_doc, "~> 0.15", only: :dev},
+    {:ex_doc, "~> 0.18.0", only: :dev},
     {:excheck, "~> 0.5", only: :test},
     {:excoveralls, "~> 0.6", only: :test},
     {:lz4, "~> 0.2"},
@@ -40,7 +40,8 @@ defmodule Cassandra.Mixfile do
     {:uuid, "~> 1.1"},
   ]
 
-  defp version, do: "1.0.0-rc.2"
+
+  defp version, do: "1.0.1"
 
   defp docs, do: [
     main: "readme",
