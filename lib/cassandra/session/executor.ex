@@ -21,11 +21,11 @@ defmodule Cassandra.Session.Executor do
     end
   end
 
-  def execute(executor, query, options, timeout \\ :infinity) when is_binary(query) and is_list(options) do
+  def execute(executor, query, options, timeout \\ 15_000) when is_binary(query) and is_list(options) do
     GenServer.call(executor, {:execute, query, options}, timeout)
   end
 
-  def stream(executor, query, func, options, timeout \\ :infinity) when is_binary(query) and is_list(options) do
+  def stream(executor, query, func, options, timeout \\ 15_000) when is_binary(query) and is_list(options) do
     options = Keyword.put(options, :streamer, func)
     GenServer.call(executor, {:execute, query, options}, timeout)
   end
@@ -65,8 +65,14 @@ defmodule Cassandra.Session.Executor do
   end
 
   def handle_cast({:run, statement, options, from}, state) do
-    GenServer.reply(from, run(statement, options, state.cache))
-    {:noreply, state}
+    case run(statement, options, state.cache) do
+      {:stop, :no_connection} ->
+        GenServer.reply(from, Cassandra.ConnectionError.new("execute", "no connection"))
+        {:stop, :no_connection, state}
+      result ->
+        GenServer.reply(from, result)
+        {:noreply, state}
+    end
   end
 
   ### Helpers ###
@@ -102,7 +108,7 @@ defmodule Cassandra.Session.Executor do
   end
 
   defp run(%Statement{connections: []}, _options, _cache) do
-    Cassandra.ConnectionError.new("execute", "no connection")
+    {:stop, :no_connection}
   end
 
   defp run(%Statement{connections: [{ip, connection} | connections]} = statement, options, cache) do

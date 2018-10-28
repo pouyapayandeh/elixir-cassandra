@@ -23,7 +23,7 @@ defmodule Cassandra.Session do
   end
 
   def execute(pool, query, options \\ []) when is_list(options) do
-    timeout = Keyword.get(options, :timeout, :infinity)
+    timeout = Keyword.get(options, :timeout, 15_000)
     :poolboy.transaction(pool, &Executor.execute(&1, query, options), timeout)
   end
 
@@ -42,7 +42,7 @@ defmodule Cassandra.Session do
 
   """
   def run_stream(pool, query, func, options \\ []) when is_list(options) do
-    timeout = Keyword.get(options, :timeout, :infinity)
+    timeout = Keyword.get(options, :timeout, 15_000)
     :poolboy.transaction(pool, &Executor.stream(&1, query, func, options), timeout)
   end
 
