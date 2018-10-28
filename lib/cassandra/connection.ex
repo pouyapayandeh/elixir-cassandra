@@ -117,6 +117,7 @@ defmodule Cassandra.Connection do
     with {:ok, result} <- fetch(request, state.socket, state.timeout) do
       {:ok, result, state}
     else
+      error = %ConnectionError{} -> {:disconnect, error, state}
       error -> {:error, error, state}
     end
   end
@@ -129,6 +130,7 @@ defmodule Cassandra.Connection do
     with {:ok, frame} <- fetch(statement.request, state.socket, state.timeout) do
       {:ok, %{statement | response: frame}, state}
     else
+      error = %ConnectionError{} -> {:disconnect, error, state}
       error -> {:error, error, state}
     end
   end
@@ -156,6 +158,7 @@ defmodule Cassandra.Connection do
         {:ok, rows, next_state}
       end
     else
+      error = %ConnectionError{} -> {:disconnect, error, state}
       error -> {:error, error, state}
     end
   end
