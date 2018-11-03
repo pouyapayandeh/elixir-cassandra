@@ -23,7 +23,7 @@ defmodule Cassandra.Connection do
 
   def run_query(host, query, options \\ []) do
     with {:ok, request} <- CQL.encode(%CQL.Query{query: query, params: CQL.QueryParams.new(options)}),
-         {:ok, %{socket: socket}} <- connect(host: host)
+         {:ok, %{socket: socket}} <- connect(host, options)
     do
       result = query(socket, request)
       :gen_tcp.close(socket)
