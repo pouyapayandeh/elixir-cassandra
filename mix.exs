@@ -36,12 +36,12 @@ defmodule Cassandra.Mixfile do
     {:excoveralls, "~> 0.6", only: :test},
     {:lz4, "~> 0.2"},
     {:poolboy, "~> 1.5"},
-    {:triq, github: "triqng/triq", only: :test},
+    {:triq, "~> 1.3", only: :test},
     {:uuid, "~> 1.1"},
   ]
 
 
-  defp version, do: "1.0.1"
+  defp version, do: "1.0.2"
 
   defp docs, do: [
     main: "readme",
