@@ -12,6 +12,7 @@ defmodule Cassandra.Connection do
     host: {127, 0, 0, 1},
     connect_timeout: 1000,
     timeout: 5000,
+    compress_query: true,
   ]
 
   @header_length 9
@@ -80,6 +81,7 @@ defmodule Cassandra.Connection do
     timeout         = options[:timeout]
     connect_timeout = options[:connect_timeout]
     keyspace        = options[:keyspace]
+    compress_query  = options[:compress_query]
     tcp_options     = [
       :binary,
       {:active, false},
@@ -88,7 +90,7 @@ defmodule Cassandra.Connection do
     ]
     with {:ok, socket}  <- :gen_tcp.connect(host, port, tcp_options, connect_timeout),
          {:ok, options} <- fetch_options(socket, timeout),
-         :ok            <- handshake(socket, timeout, options),
+         :ok            <- handshake(socket, timeout, options, compress_query),
          :ok            <- set_keyspace(socket, keyspace, timeout)
     do
       {:ok, %{socket: socket, host: host, timeout: timeout, options: options, last_cursor: 0, cursors: %{}}}
@@ -255,9 +257,9 @@ defmodule Cassandra.Connection do
     end
   end
 
-  defp handshake(socket, timeout, options) do
+  defp handshake(socket, timeout, options, compress_query) do
     startup_request =
-      if "lz4" in Map.get(options, "COMPRESSION", []) do
+      if "lz4" in Map.get(options, "COMPRESSION", []) and compress_query do
         @startup_request_lz4
       else
         @startup_request
