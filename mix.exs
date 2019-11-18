@@ -34,7 +34,7 @@ defmodule Cassandra.Mixfile do
     {:ex_doc, "~> 0.18.0", only: :dev},
     {:excheck, "~> 0.5", only: :test},
     {:excoveralls, "~> 0.6", only: :test},
-    {:lz4, "~> 0.2"},
+    {:lz4, github: "szktty/erlang-lz4", override: true},
     {:poolboy, "~> 1.5"},
     {:triq, "~> 1.3", only: :test},
     {:uuid, "~> 1.1"},
